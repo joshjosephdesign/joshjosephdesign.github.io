@@ -3,12 +3,15 @@
     src: url(cmmcodaprop.woff2) format("woff2");
 }
 @font-face {
-    font-family:coda-ital;
-    src: url(cmmcodapropital.woff2) format("woff2");
+    font-family:hal-ital;
+    src: url(haltimezone-italic.woff2) format("woff2");
 }
 
-em { font-family: coda-ital, sans-serif; font-style: normal;}
-body {font-family: coda, sans-serif;}
+em { font-family: hal-ital, serif; font-style: normal; letter-spacing: 0.1mm;}
+body {font-family: coda, sans-serif;
+background-color: rgb(242, 255, 255);
+max-width: 70%;
+padding: 10px;}
 h1, h2, h3 {
     color:rgb(41, 87, 89)
 }
