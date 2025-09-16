@@ -8,3 +8,5 @@ p, blockquote {
 a {color:rgb(255, 0, 144)}
 
 .worklist { font-weight: 100;}
+
+a:hover {font-style: italic;}
