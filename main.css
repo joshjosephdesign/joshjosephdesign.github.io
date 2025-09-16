@@ -28,3 +28,7 @@ a {color:rgb(255, 0, 144); text-decoration: none;}
 a:hover {font-style: italic;}
 .righthand:hover {position: relative; left: 2px; font-style:normal;}
 .lefthand:hover {position: relative; left: -2px; font-style:normal;}
+
+.bodyindent {padding-left:3em;}
+
+.navfoot {width: 20%; display:block; margin:auto; border: 1px solid cadetblue; text-align: center; padding-left:2em; padding-right:2em;border-radius: 25px; background-color: beige; position:fixed; bottom:15px;}
