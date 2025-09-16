@@ -29,6 +29,22 @@ a:hover {font-style: italic;}
 .righthand:hover {position: relative; left: 2px; font-style:normal;}
 .lefthand:hover {position: relative; left: -2px; font-style:normal;}
 
-.bodyindent {padding-left:3em;}
+.bodyindent {padding-left:3em; padding-bottom: 3em;}
 
-.navfoot {width: 20%; display:block; margin:auto; border: 1px solid cadetblue; text-align: center; padding-left:2em; padding-right:2em;border-radius: 25px; background-color: beige; position:fixed; bottom:15px;}
+.navfoot {
+    width: 6em;
+    height: 3em; 
+     display: flex;
+  align-items: center; /* Vertically centers child elements */
+  justify-content: center; 
+    margin:auto; 
+    border: 1px solid cadetblue; 
+    text-align: center; 
+    padding-left:2em; 
+    padding-right:2em;
+    border-radius: 25px; 
+    background-color: white; 
+    position:fixed; 
+    bottom:15px;}
+
+    .navfoot h2 { margin:0; padding:auto;}
