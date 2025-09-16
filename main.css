@@ -1,3 +1,8 @@
-p {
+h1, h2, h3 {
+    color:rgb(41, 87, 89)
+}
+p, blockquote {
     color:cadetblue
 }
+
+a {color:rgb(255, 0, 144)}
