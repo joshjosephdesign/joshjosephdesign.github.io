@@ -26,3 +26,5 @@ a {color:rgb(255, 0, 144); text-decoration: none;}
 .worklist { font-weight: 100;}
 
 a:hover {font-style: italic;}
+.righthand:hover {position: relative; left: 2px; font-style:normal;}
+.lefthand:hover {position: relative; left: -2px; font-style:normal;}
