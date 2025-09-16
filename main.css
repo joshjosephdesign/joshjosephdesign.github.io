@@ -13,13 +13,14 @@ background-color: rgb(242, 255, 255);
 max-width: 70%;
 padding: 10px;}
 h1, h2, h3 {
-    color:rgb(41, 87, 89)
+    color:rgb(41, 87, 89);
+    font-weight: normal;
 }
 p, blockquote {
     color:cadetblue
 }
 
-a {color:rgb(255, 0, 144)}
+a {color:rgb(255, 0, 144); text-decoration: none;}
 
 .worklist { font-weight: 100;}
 
