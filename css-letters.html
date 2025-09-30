@@ -1,0 +1,558 @@
+<!DOCTYPE html><!--document type declaration-->
+<html>
+
+<head><!-- a container for metadata -->
+    <meta charset="utf-8"><!--charset: character encoding capable of encoding all characters on the web  -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <!--for browser compatibility: choose rendering engine to view the page in an correct view (for old ver. IE)  -->
+    <title></title><!--declaring the title, or name, of the HTML document. displayed in the browser's title bar-->
+    <meta name="description" content=""><!--keywords/snippet for search engines-->
+    <meta name="viewport" content="width=device-width">
+    <style>
+        div[class^='parent'] {
+            margin-left: 30vw;
+            margin-right: 30vw;
+            margin-top: 100px;
+            transform: scale(1.25);
+        }
+
+        .container-one {
+            display: flex;
+            flex-direction: row;
+            margin: 100px;
+            width: 500vw;
+        }
+
+        .parent-one {
+            height: 400px;
+            width: 400px;
+        }
+
+        .parent-two {
+            height: 400px;
+            width: 400px;
+
+        }
+
+        .parent-three {
+            height: 400px;
+            width: 400px;
+
+        }
+
+        @keyframes fiverocker {
+            0% {
+                transform: rotate(-20deg) translateY(150px);
+            }
+
+            25% {
+                transform: rotate(0deg) translateY(0px);
+            }
+
+            50% {
+                transform: rotate(20deg) translateY(150px);
+            }
+
+            75% {
+                transform: rotate(0deg) translateY(0px);
+            }
+
+            100% {
+                transform: rotate(-20deg) translateY(150px);
+            }
+
+        }
+
+        .parent-five {
+            height: 400px;
+            width: 400px;
+            animation: fiverocker 2s ease-in-out infinite normal;
+
+        }
+
+        .liney {
+            height: 150px;
+            width: 40px;
+            background-color: rgb(255, 138, 214);
+            margin-left: 52.5%;
+            animation: shrinker 3s ease 0s infinite normal;
+        }
+
+        .topstroke {
+            display: none;
+            height: 10%;
+            width: 37.5%;
+            margin-left: 35%;
+            margin-right: 15%;
+            background-color: rgb(255, 198, 230);
+        }
+
+        /* HTML: <div class="arc"></div> */
+        @keyframes arcspin {
+            0% {
+                --z: 190deg;
+                transform: rotate(90deg);
+            }
+
+            10% {
+                --z: 190deg;
+            }
+
+            20% {
+                --z: 360deg;
+            }
+
+            35% {
+                --z: 190deg;
+            }
+
+            50% {
+                --z: 190deg;
+                transform: rotate(450deg);
+            }
+
+            100% {
+                --z: 190deg;
+                transform: rotate(450deg);
+            }
+        }
+
+        @property --z {
+            syntax: '<angle>';
+            /* <- defined as type number for the transition to work */
+            initial-value: 30deg;
+            inherits: false;
+        }
+
+        @keyframes shrinker {
+            0% {
+                margin-top: 0px;
+                height: 150px;
+            }
+
+            5% {
+                margin-top: 150px;
+                height: 0px;
+            }
+
+            40% {
+                margin-top: 150px;
+                height: 0px;
+            }
+
+            60% {
+                margin-top: 0px;
+                height: 150px;
+            }
+
+            100% {
+                margin-top: 0px;
+                height: 150px;
+            }
+
+
+        }
+
+        .arc {
+            /* control the progression */
+
+            width: 62.5%;
+            height: 62.5%;
+            aspect-ratio: 1;
+            padding: 10%;
+            /* the boder thickness */
+            box-sizing: border-box;
+            border-radius: 50%;
+            background: rgb(255, 88, 188);
+            mask:
+                linear-gradient(#0000 0 0) content-box intersect,
+                conic-gradient(#000 var(--z), #0000 0);
+
+            margin-top: -130px;
+            animation: arcspin 3s ease 0s infinite normal;
+        }
+
+        .dashcircle {
+            display: none;
+            width: 50%;
+            height: 50%;
+            border-radius: 50%;
+            border: dashed 3px greenyellow;
+            margin: 6.25%;
+            position: relative;
+            top: -62.5%;
+            left: -0.75%;
+        }
+
+        /* HTML:  */
+        .inner-curve {
+            --rb: 10px;
+            /* control the rounded part */
+            --sb: 100px;
+            /* control the size of the cut */
+            --ab: 10deg;
+            /* control the depth of the curvature */
+            --pb: 40%;
+            /* control the position */
+
+            height: 200px;
+            aspect-ratio: 3/2;
+            background: #ED303C;
+            border-radius: var(--rb);
+            --_mb: var(--rb), #000 calc(100% - 1px), #0000;
+            --_db: (var(--sb) + var(--rb))*cos(var(--ab));
+            mask:
+                radial-gradient(var(--rb) at calc(var(--pb) + var(--_db)) var(--_mb)),
+                radial-gradient(var(--rb) at calc(var(--pb) - var(--_db)) var(--_mb)),
+                radial-gradient(var(--sb) at var(--pb) calc(-1*sin(var(--ab))*var(--sb)),
+                    #0000 100%, #000 calc(100% + 1px)) 0 calc(var(--rb)*(1 - sin(var(--ab)))) no-repeat,
+                linear-gradient(90deg, #000 calc(var(--pb) - var(--_db)), #0000 0 calc(var(--pb) + var(--_db)), #000 0);
+            animation: slidebdos 3s ease 0s infinite alternate;
+        }
+
+        .top-two {
+
+
+            border-radius: 10px;
+            height: 150px;
+            width: 80px;
+            margin-left: 220px;
+            margin-bottom: 15px;
+
+            animation: slideblock 3s ease 0s infinite alternate;
+        }
+
+        /*.top-clone{ 
+
+background-color:rgb(255, 111, 0);  
+border-radius: 10px;
+height:150px; width:80px;
+
+animation: slidebtres 2s ease 0s infinite alternate;
+}*/
+
+        @keyframes slideblock {
+            0% {
+                transform: translate(0px, 0px);
+                background-color: rgb(255, 111, 0);
+            }
+
+            15% {
+                transform: translate(0px, 0px);
+                background-color: rgb(255, 111, 0);
+            }
+
+            25% {
+                transform: translate(100px, 0px);
+                background-color: rgb(255, 111, 0);
+            }
+
+            50% {
+                transform: translate(100px, 215px);
+                height: 200px;
+                width: 80px;
+                background-color: rgb(255, 111, 0);
+            }
+
+            100% {
+                transform: translate(-220px, 215px);
+                height: 200px;
+                width: 300px;
+                background-color: #ED303C;
+            }
+        }
+
+        @keyframes slidebdos {
+            0% {
+                transform: translate(0px, 0px);
+            }
+
+            15% {
+                transform: translate(0px, 0px);
+            }
+
+            25% {
+                transform: translate(0px, 0px);
+            }
+
+            50% {
+                transform: translate(0px, 0px);
+            }
+
+            100% {
+                transform: translate(-500px, 0px);
+            }
+        }
+
+        /*@keyframes slidebtres { 
+    0% {opacity: 0%; transform: translate(0px,0px);}
+    25% {opacity: 0%; translate(0px, 0px);}
+    50% {opacity: 0%; transform: translate(200px,-165px);}
+    100% {opacity: 100%; transform: translate(200px,-165px); }
+}*/
+        .ballterm {
+            height: 70px;
+            width: 70px;
+            border-radius: 50%;
+            background-color: blueviolet;
+            position: relative;
+            top: -179px;
+            left: -12px;
+        }
+
+        .arc-three {
+            --a: 150deg;
+            /* control the progression */
+
+            width: 250px;
+            aspect-ratio: 4 / 5;
+            padding: 60px;
+            /* the boder thickness */
+            box-sizing: border-box;
+            border-radius: 50%;
+            background: blueviolet;
+            mask:
+                linear-gradient(#0000 0 0) content-box intersect,
+                conic-gradient(#000 var(--a), #0000 0);
+            transform: rotate(90deg) scaleX(0.7);
+            margin-top: -150px;
+            position: relative;
+            top: -10px;
+            left: 4px;
+        }
+
+        .topboxscoop {
+            background-color: blueviolet;
+            height: 40px;
+            width: 110px;
+            mask: radial-gradient(25px at 25px 100%, #0000 99%, #000) -25px;
+            position: relative;
+            left: 200px;
+
+        }
+
+        .vertstroke-three {
+            height: 150px;
+            width: 60px;
+            background-color: blueviolet;
+            position: relative;
+            left: 225px
+        }
+
+        .container-two {
+            display: flex;
+            flex-direction: column;
+            margin: 100px;
+        }
+
+        .parent-four {
+            height: 600px;
+            width: 400px;
+            animation: tiltyrolly 2.5s ease-in-out infinite alternate;
+        }
+
+        .lowercircle {
+            background: rgb(255, 242, 0);
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            animation: rolly 5s ease-in-out infinite normal;
+        }
+
+        @keyframes rolly {
+            0% {
+                transform: translateX(0px);
+            }
+
+            25% {
+                transform: translateX(0px);
+            }
+
+            50% {
+                transform: translateX(200px);
+            }
+
+            75% {
+                transform: translateX(200px);
+            }
+
+            100% {
+                transform: translateX(0px);
+            }
+        }
+
+        @keyframes tiltyrolly {
+            0% {
+                transform: rotate(-5deg);
+            }
+
+            100% {
+                transform: rotate(15deg);
+            }
+        }
+
+        .vertstroke-four {
+            height: 150px;
+            width: 200px;
+            background-color: orange;
+            position: relative;
+            left: 100px;
+        }
+
+        .vertstroke-fourb {
+            height: 70px;
+            width: 90px;
+            background-color: orange;
+            position: relative;
+            left: 0px;
+            top: -70px;
+        }
+
+        .semicircle {
+            width: 300px;
+            /* Twice the height */
+            height: 150px;
+            background-color: orange;
+            border-radius: 0 0 150px 150px;
+            /* Top-left, top-right, bottom-right, bottom-left */
+            position: relative;
+            top: -70px;
+        }
+
+
+        @property --b {
+            syntax: '<length>';
+            /* <- defined as type number for the transition to work */
+            initial-value: 35px;
+            inherits: false;
+        }
+
+        @property --s {
+            syntax: '<length>';
+            /* <- defined as type number for the transition to work */
+            initial-value: 50px;
+            inherits: false;
+        }
+
+        .zig-zag-line {
+            --a: 120deg;
+            /* control the angle */
+            /*--s: 50px;  size of the zig-zag */
+
+
+            background: #28bf7b;
+            width: calc(var(--b) + var(--s)/(2*tan(var(--a)/2)));
+            min-height: 250px;
+            --_g: 100% var(--s) repeat-y conic-gradient(from calc(90deg - var(--a)/2) at left,
+                    #0000, #000 1deg calc(var(--a) - 1deg), #0000 var(--a));
+            mask: var(--b) 50%/var(--_g) exclude, 0 50%/var(--_g);
+            position: relative;
+            left: 150px;
+            z-index: 2;
+            mix-blend-mode: multiply;
+            animation: accordion 0.5s ease infinite alternate;
+        }
+
+        .chevron {
+            --s: 80px;
+            /* control the shape (can be percentage) */
+
+            width: 220px;
+            aspect-ratio: 5/3;
+            clip-path: polygon(0 0, 0 var(--s), 50% 100%, 100% var(--s), 100% 0, 50% calc(100% - var(--s)));
+            background: #cefe32;
+            position: relative;
+            top: -25px;
+            z-index: 1;
+            mix-blend-mode: multiply;
+        }
+
+        .hline {
+            width: 150px;
+            height: 5px;
+            background: #25e2b3;
+            transform: rotate(3deg);
+            z-index: 3;
+            position: relative;
+            top: 20px;
+            left: 100px;
+            mix-blend-mode: multiply;
+            animation: linehop 1s ease 0s infinite alternate;
+        }
+
+        @keyframes linehop {
+            0% {
+                transform: translateY(0px);
+            }
+
+            20% {
+                transform: translateY(0px) rotate(0deg);
+            }
+
+            50% {
+                transform: translateY(-50px) rotate(0deg);
+            }
+
+            80% {
+                transform: translateY(0px) rotate(0deg);
+            }
+
+            100% {
+                transform: translateY(0px);
+            }
+        }
+
+        @keyframes accordion {
+            0% {
+                min-height: 100px;
+                --s: 20px;
+                --b: 35px
+            }
+
+
+            100% {
+                min-height: 250px;
+                --s: 50px;
+                --b: 15px;
+            }
+
+        }
+    </style><!--the browser will (probably) render the width of the page at the width of its own screen -->
+</head>
+
+<body>
+    <div class="container-one">
+        <div class="parent-one">
+            <div class="topstroke"></div>
+            <div class="liney"></div>
+            <div class="arc"></div>
+            <div class="dashcircle"></div>
+        </div>
+        <div class="parent-two">
+            <div class="top-two"></div>
+            <div class="top-clone"></div>
+            <div class="inner-curve"></div>
+        </div>
+        <div class="parent-three">
+            <div class="topboxscoop"></div>
+            <div class="vertstroke-three"></div>
+            <div class="arc-three"></div>
+            <div class="ballterm"></div>
+        </div>
+        <div class="parent-four">
+            <div class="lowercircle"></div>
+            <div class="vertstroke-four"></div>
+            <div class="vertstroke-fourb"></div>
+            <div class="semicircle"></div>
+        </div>
+        <div class="parent-five">
+            <div class="hline"></div>
+            <div class="zig-zag-line"></div>
+            <div class="chevron"></div>
+        </div>
+
+
+    </div>
+</body>
+
+</html>
