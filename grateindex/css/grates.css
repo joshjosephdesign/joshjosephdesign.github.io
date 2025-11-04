@@ -132,13 +132,18 @@ body {
     margin: 0px;
 }
 
+h2 {
+    font-weight: normal;
+    font-size: medium;
+}
+
 .layout {
     display: flex;
     align-items: flex-start;
     flex-direction: row;
 }
 
-.filters {
+.sortfilterbox {
     padding: 20px;
     height: calc(100% - 164px);
 
@@ -147,6 +152,16 @@ body {
 
 .filters p {
     line-height: 9pt;
+}
+
+.sortopt {
+    line-height: 9pt;
+    text-indent: 1em;
+    color: tomato;
+}
+
+.sortopt:hover {
+    opacity: 0.8;
 }
 
 .filters p:hover {
@@ -160,6 +175,15 @@ body {
 .filters p.active::before {
     content: "• ";
     margin-right: 5px;
+}
+
+.sortopt.active::before {
+    content: "• ";
+    margin-right: 5px;
+}
+
+.sortopt.active {
+    color: rgb(255, 0, 0)
 }
 
 .filters .filt {
@@ -259,7 +283,8 @@ body {
 .sidePurposecont,
 .sideOrientationcont,
 .sideSizecont,
-.sideDebris {
+.sideDebris,
+.sideDate {
     margin-top: 20px;
 }
 
@@ -285,3 +310,5 @@ body {
     height: 100vh !important;
     overflow: scroll !important;
 }
+
+.sortdirection {}

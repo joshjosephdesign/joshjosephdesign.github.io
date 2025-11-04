@@ -28,8 +28,22 @@ document.addEventListener("DOMContentLoaded", async () => {
         grateDiv.dataset.headline = item.headline;
         grateDiv.dataset.description = item.description;
 
-        listDiv.dataset.headline = item.headline;
+        listDiv.dataset.shape = item.shape;
+        listDiv.dataset.purpose = item.purpose;
+        listDiv.dataset.intext = item.intext;
+        listDiv.dataset.date = item.date;
         listDiv.dataset.number = item.number;
+        listDiv.dataset.intext = item.intext;
+        listDiv.dataset.orientation = item.orientation;
+        listDiv.dataset.holeshape = item.holeshape;
+        listDiv.dataset.holequant = item.holequant;
+        listDiv.dataset.size = item.size;
+        listDiv.dataset.hastype = item.hastype;
+        listDiv.dataset.type = item.type;
+        listDiv.dataset.debris = item.debris;
+        listDiv.dataset.location = item.location;
+        listDiv.dataset.headline = item.headline;
+        listDiv.dataset.description = item.description;
 
         grateDiv.innerHTML = `
       <p>${item.number}</p>
@@ -83,6 +97,20 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 
     //filtering
+
+    function applyFilter(filterValue) {
+        // Isotope grid
+        iso.arrange({ filter: filterValue });
+
+        // Synchronized list
+        document.querySelectorAll('.list-item').forEach(li => {
+            if (filterValue === '*' || li.matches(filterValue)) {
+                li.style.display = '';
+            } else {
+                li.style.display = 'none';
+            }
+        });
+    }
     const filterButtons = document.querySelectorAll('.filters p');
     let activeFilter = '*';
     filterButtons.forEach(p => {
@@ -100,9 +128,12 @@ document.addEventListener("DOMContentLoaded", async () => {
                 iso.arrange({ filter: '*' });
                 activeFilter = '*';
                 filterButtons.forEach(btn => btn.classList.remove('active'));
+                document.querySelectorAll('.list-item').forEach(li => {
+                    li.style.display = '';
+                });
             } else {
                 // Apply new filter
-                iso.arrange({ filter: filterValue });
+                applyFilter(filterValue);
                 activeFilter = filterValue;
 
                 // Update button states
@@ -307,6 +338,17 @@ document.addEventListener("DOMContentLoaded", async () => {
             span.classList.add('sorter');
             span.textContent = value;
             span.dataset.filter = `[data-${categoryKey.toLowerCase()}="${value}"]`;
+
+            // make sidebarThree sorters filter grid + list
+            document.addEventListener('click', (e) => {
+                const sorter = e.target.closest('.sorter');
+                if (!sorter) return;
+
+                const filterValue = sorter.dataset.filter;
+
+                // use the same function that already syncs grid & list
+                applyFilter(filterValue);
+            });
             container.appendChild(span);
         }
 
@@ -315,6 +357,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         createSidebarSorter('Orientation', itemData);
         createSidebarSorter('HoleShape', itemData);
         sidebar.querySelector('.sideQuant').textContent = `Hole Quantity: ${itemData.holequant}`;
+        sidebar.querySelector('.sideDate').textContent = `Date: ${itemData.date}`;
         sidebar.querySelector('.sideLoc').textContent = `Location: ${itemData.location}`;
         sidebar.querySelector('.sideSize').textContent = `${itemData.size}`;
 
@@ -436,5 +479,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     // exit with x button
     document.querySelector('.focus-close').addEventListener('click', exitFocusMode);
 
+    document.querySelector('.sorting').addEventListener('click', (e) => {
+        const button = e.target.closest('.sortopt');
+        if (!button) return;
+
+        const sortByValue = button.dataset.sortBy;
+        iso.arrange({ sortBy: sortByValue });
+        const sortButtons = document.querySelectorAll('.sortopt');
+        // Update button states
+        sortButtons.forEach(btn => btn.classList.remove('active'));
+        button.classList.add('active');
+    });
 
 });
