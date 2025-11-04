@@ -255,9 +255,9 @@ body {
 .sideQuant,
 .sideLoc,
 .sideShapecont,
-.sideHolecont,
+.sideHoleShapecont,
 .sidePurposecont,
-.sideOricont,
+.sideOrientationcont,
 .sideSizecont,
 .sideDebris {
     margin-top: 20px;
@@ -265,11 +265,19 @@ body {
 
 
 .sideShape,
-.sideHole,
-.sideOri,
+.sideHoleShape,
+.sideOrientation,
 .sidePurpose,
 .sideSize {
     color: tomato;
+}
+
+.sorter {
+    cursor: pointer;
+}
+
+.sorter:hover {
+    opacity: 0.8;
 }
 
 .gridContainer {

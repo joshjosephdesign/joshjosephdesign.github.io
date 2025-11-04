@@ -295,13 +295,30 @@ document.addEventListener("DOMContentLoaded", async () => {
         const sidebar = document.querySelector('.details-content');
         sidebar.querySelector('.sideTitle').textContent = itemData.headline;
         sidebar.querySelector('.sideDesc').textContent = itemData.description;
-        sidebar.querySelector('.sideShape').textContent = `${itemData.shape}`;
-        sidebar.querySelector('.sideHole').textContent = `${itemData.holeshape}`;
+
+        //this makes clickable cateogries that bring you to filters
+        function createSidebarSorter(categoryKey, itemData) {
+            const container = document.querySelector(`.sidebarThree .side${categoryKey}`);
+            if (!container) return;
+            container.innerHTML = '';
+            const value = itemData[categoryKey.toLowerCase()];
+            if (!value) return;
+            const span = document.createElement('span');
+            span.classList.add('sorter');
+            span.textContent = value;
+            span.dataset.filter = `[data-${categoryKey.toLowerCase()}="${value}"]`;
+            container.appendChild(span);
+        }
+
+        createSidebarSorter('Shape', itemData);
+        createSidebarSorter('Purpose', itemData);
+        createSidebarSorter('Orientation', itemData);
+        createSidebarSorter('HoleShape', itemData);
         sidebar.querySelector('.sideQuant').textContent = `Hole Quantity: ${itemData.holequant}`;
         sidebar.querySelector('.sideLoc').textContent = `Location: ${itemData.location}`;
         sidebar.querySelector('.sideSize').textContent = `${itemData.size}`;
-        sidebar.querySelector('.sideOri').textContent = `${itemData.orientation}`;
-        sidebar.querySelector('.sidePurpose').textContent = `${itemData.purpose}`;
+
+
 
         if (itemData.hastype === "Yes") {
             sidebar.querySelector('.sideType').textContent = `Type: ${itemData.type}`;
@@ -316,6 +333,29 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
 
     }
+
+    //this controls when you click on a filter in sidebar3 and it exits focus mode, turns that filter active
+    document.addEventListener('click', (e) => {
+        const shapeBtn = e.target.closest('.sorter');
+        if (!shapeBtn) return; // Ignore unrelated clicks
+
+        const filterValue = shapeBtn.dataset.filter;
+
+        const maybePromise = exitFocusMode?.();
+        if (maybePromise && typeof maybePromise.then === 'function') {
+
+            maybePromise.then(() => iso.arrange({ filter: filterValue }));
+        } else {
+
+            iso.arrange({ filter: filterValue });
+        }
+
+        document.querySelectorAll('.sorter, .filt').forEach(el =>
+            el.classList.toggle('active', el.dataset.filter === filterValue)
+        );
+
+    });
+
 
     function exitFocusMode() {
         focusActive = false;
