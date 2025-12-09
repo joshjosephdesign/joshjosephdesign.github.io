@@ -1,7 +1,7 @@
 @font-face {
     font-family: "Timezone-italic";
     src:
-        url("/fonts/HALTimezone-Italic.woff2") format("woff2");
+        url("../fonts/HALTimezone-Italic.woff2") format("woff2");
 }
 
 body {
@@ -107,7 +107,7 @@ body {
 }
 
 #ikeimg {
-    background: url(/images/ike1.png);
+    background: url(../images/ike1.png);
     width: 100%;
     height: 100%;
     background-repeat: no-repeat;
@@ -120,7 +120,7 @@ body {
     width: 100px;
     height: 100px;
     background-repeat: no-repeat;
-    background: url(/images/ike1.png);
+    background: url(../images/ike1.png);
     width: 100%;
     height: 100%;
     background-repeat: no-repeat;
@@ -134,7 +134,7 @@ body {
     width: 100px;
     height: 100px;
     background-repeat: no-repeat;
-    background: url(/images/ike1.png);
+    background: url(../images/ike1.png);
     width: 100%;
     height: 100%;
     background-repeat: no-repeat;
@@ -149,7 +149,7 @@ body {
     width: 100px;
     height: 100px;
     background-repeat: no-repeat;
-    background: url(/images/ike1.png);
+    background: url(../images/ike1.png);
     width: 100%;
     height: 100%;
     background-repeat: no-repeat;
@@ -367,13 +367,13 @@ body {
 
 @keyframes iketalk {
     0% {
-        background-image: url(/images/ike1.png);
+        background-image: url(../images/ike1.png);
         background-size: contain;
         animation-timing-function: step-end;
     }
 
     50% {
-        background-image: url(/images/ike2.png);
+        background-image: url(../images/ike2.png);
         background-size: contain;
         animation-timing-function: step-end;
     }
