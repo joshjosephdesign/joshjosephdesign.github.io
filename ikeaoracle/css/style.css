@@ -875,19 +875,19 @@ form::after {
 }
 
 #loader {
-    transform: rotate(0deg);
     position: absolute;
-    top: 10vh;
-    left: 50vw;
-    transform: translateX(-50%);
-    width: 70vw;
-    height: 40vh;
+    top: 50%;
+    left: 50%;
+    width: 60vw;
+    height: 60vw;
+    transform-origin: center;
+    transform: translate(-50%, -50%) rotate(180deg);
 }
 
 #loader text {
     text-anchor: middle;
     fill: rgb(255, 255, 255);
-    font-size: 20pt;
+    font-size: 25pt;
     offset: 50%;
     font-family: Timezone-italic;
 }
