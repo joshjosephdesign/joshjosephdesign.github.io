@@ -664,7 +664,8 @@ form::after {
     transform: translateX(-50%);
     top: 40%;
     max-width: 25vw;
-    max-height: 45vh;
+    max-height: 40vh;
+    min-height: 20vh;
 
 }
 
@@ -688,7 +689,7 @@ form::after {
 
 #commemoratewrapper {
     position: absolute;
-    top: 65vh;
+    top: 67vh;
     left: 50vw;
     transform: translateX(-50%);
     width: 50vw;
