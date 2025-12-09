@@ -109,7 +109,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     async function loadPartsData() {
-        const response = await fetch('../data/parts.json');
+        const response = await fetch('./data/parts.json');
         if (!response.ok) {
             throw new Error('Failed to load parts.json');
         }
