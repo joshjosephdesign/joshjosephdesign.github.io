@@ -415,9 +415,21 @@ document.addEventListener("DOMContentLoaded", async () => {
                         await typewriter(dialog3, "What do you wish to do?", 100);
                         const buttons = document.querySelector('#screen3-buttons');
                         if (buttons) {
-                            const dialogRect = dialog3.getBoundingClientRect();
-                            buttons.style.left = `${dialogRect.left}px`;
+                            // Function to update button position
+                            const updateButtonPosition = () => {
+                                const bubContainer = dialog3.closest('#bubContainer');
+                                if (bubContainer) {
+                                    const containerRect = bubContainer.getBoundingClientRect();
+                                    buttons.style.left = `${containerRect.left}px`;
+                                }
+                            };
+
+                            // Set initial position
+                            updateButtonPosition();
                             buttons.classList.add('visible');
+
+                            // Update position on window resize
+                            window.addEventListener('resize', updateButtonPosition);
                         }
                     }
                 }, 6000);
