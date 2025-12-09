@@ -1,0 +1,233 @@
+<!DOCTYPE html><!--document type declaration-->
+<html>
+
+<head><!-- a container for metadata -->
+    <meta charset="utf-8"><!--charset: character encoding capable of encoding all characters on the web  -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <!--for browser compatibility: choose rendering engine to view the page in an correct view (for old ver. IE)  -->
+    <title>The Oracle of Pieces</title>
+    <!--declaring the title, or name, of the HTML document. displayed in the browser's title bar-->
+    <meta name="description" content=""><!--keywords/snippet for search engines-->
+    <meta name="viewport" content="width=device-width">
+    <!--the browser will (probably) render the width of the page at the width of its own screen -->
+    <link rel="stylesheet" type="text/css" href="css/style.css">
+    <script src="js/app.js"></script>
+</head>
+
+<body><!--all the contents of an HTML document goes here-->
+
+    <div id="ike">
+        <div id="ikeimg">
+
+        </div>
+    </div>
+    <div id="huebox"></div>
+    <div id="aurabox">
+        <div id="circle1"></div>
+        <div id="circle2"></div>
+        <div id="circle3"></div>
+    </div>
+    <div id="screen0">
+        <svg id="title-text" viewBox="0 0 1000 1000">
+            <defs>
+                <path id="titleline1" d="
+            M 500,200
+            A 300,300 0 1 1 499.9,200" />
+            </defs>
+            <text>
+                <textPath id="title-words" startOffset="50%" xlink:href="#titleline1">The Oracle of Pieces will see you
+                    now.
+                </textPath>
+            </text>
+        </svg>
+    </div>
+    <div id="screen1">
+
+        <svg id="intro" viewBox="0 0 600 350">
+
+            <defs>
+                <path id="introline1" d="
+            M 0,300
+            A 350,350 0 0 1 600,300" />
+            </defs>
+            <text>
+                <textPath id="intro-text" startOffset="50%" xlink:href="#introline1">I want to remember this moment.
+                </textPath>
+
+            </text>
+        </svg>
+        <button id="screen1-next">→</button>
+        <div id="infobutton">
+            <span class="info-label">i</span>
+            <div class="info-expanded">
+                <p><span>The Oracle of Pieces</span> will expertly pair you with an
+                    object to remember the present moment, using freely available precious objects from IKEA.</p>
+                <p>Designed by Josh Joseph for RISD Web as Medium 1.</p>
+                <p>Typeset in HAL Timezone.</p>
+            </div>
+        </div>
+    </div>
+    <div id="screen2">
+        <div id="bubContainer">
+            <svg id="speechBub" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48.94 34.13">
+
+                <g id="Layer_1-2">
+                    <path class="cls-1" d="M48.52.27C43.62,7.78,31.03,22.29,2.18,33.55c0,0,24.26,2.08,46.34-14.79" />
+                </g>
+            </svg>
+            <p class="dialog"> </p>
+        </div>
+        <form>
+
+            <textarea id="message" name="message" rows="1" cols="40" placeholder="Type here"></textarea>
+            <input type="submit" value="→">
+        </form>
+    </div>
+    <div id="screen20">
+        <div id="bubContainer">
+            <svg id="speechBub" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48.94 34.13">
+
+                <g id="Layer_1-2">
+                    <path class="cls-1" d="M48.52.27C43.62,7.78,31.03,22.29,2.18,33.55c0,0,24.26,2.08,46.34-14.79" />
+                </g>
+            </svg>
+            <p class="dialog"> </p>
+        </div>
+        <div id="screwbox">
+            <div id="hex">
+                <img src="images/Asset 2screwhead.svg">
+            </div>
+            <div id="philips">
+                <img src="images/Asset 3screwhead.svg">
+            </div>
+            <div id="flathead">
+                <img src="images/Asset 4screwhead.svg">
+            </div>
+            <div id="awl">
+                <img src="images/Asset 5screwhead.svg">
+            </div>
+
+        </div>
+    </div>
+    <div id="screen21">
+        <div id="labels">
+            <img id="happy" src="images/happyface.svg">
+            <img id="sad" src="images/sadface.svg">
+            <img id="exclama" src="images/exclama.svg">
+            <img id="zzz" src="images/zees.svg">
+        </div>
+        <div id="moodbox">
+
+            <div class="quadrant"></div>
+            <div class="quadrant"></div>
+            <div class="quadrant"></div>
+            <div class="quadrant"></div>
+
+        </div>
+        <div id="bubContainer">
+            <svg id="speechBub" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48.94 34.13">
+
+                <g id="Layer_1-2">
+                    <path class="cls-1" d="M48.52.27C43.62,7.78,31.03,22.29,2.18,33.55c0,0,24.26,2.08,46.34-14.79" />
+                </g>
+            </svg>
+            <p class="dialog"> </p>
+        </div>
+    </div>
+    <div id="screen29">
+        <svg id="loader" viewBox="0 0 400 400">
+            <defs>
+                <path id="loaderline1" d="
+            M 0,300
+            A 200,200 0 0 1 400,300" />
+            </defs>
+            <text>
+                <textPath startOffset="50%" xlink:href="#loaderline1">Hold your hands to the screen to calibrate
+                    energies.
+                </textPath>
+
+            </text>
+        </svg>
+    </div>
+    <div id="screen30">
+        <svg id="delivery-msg" viewBox="0 0 600 350">
+            <defs>
+                <path id="deliveryline1" d="
+            M 0,300
+            A 350,350 0 0 1 600,300" />
+            </defs>
+            <text>
+                <textPath id="delivery-text" startOffset="50%" xlink:href="#deliveryline1">Token number copied. Paste
+                    into the search to deliver it.
+                </textPath>
+            </text>
+        </svg>
+    </div>
+    <div id="screen3">
+        <svg id="partnowrapper" viewBox="0 0 600 350">
+
+            <defs>
+                <path id="partline1" d="
+            M 0,300
+            A 350,350 0 0 1 600,300" />
+            </defs>
+            <text>
+                <textPath id="artifact-name" startOffset="50%" xlink:href="#partline1">I want to remember this moment.
+                </textPath>
+
+            </text>
+        </svg>
+        <svg id="namewrapper" viewBox="0 0 600 350">
+            <defs>
+                <path id="nameline1" d="
+            M 0,300
+            A 350,350 0 0 1 600,300" />
+            </defs>
+            <text>
+                <textPath id="part-number" startOffset="50%" xlink:href="#nameline1">I want to remember this moment.
+                </textPath>
+
+            </text>
+        </svg>
+        <img id="part-image" alt="Spare part image">
+        <svg id="commemoratewrapper" viewBox="0 0 600 350">
+            <defs>
+                <path id="commemorateline1" d="
+            M 0,50
+            A 350,350 0 0 0 600,50" />
+            </defs>
+            <text>
+                <textPath id="commemorate-text" startOffset="50%" xlink:href="#commemorateline1">
+                </textPath>
+            </text>
+        </svg>
+        <div id="descwrapper">
+            <p id="desc"></p>
+            <p id="index"></p>
+            <p id="aura"></p>
+            <p id="element"></p>
+        </div>
+        <svg id="ike-print" xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">
+            <image href="images/ike1.png" width="100" height="100" />
+        </svg>
+        <div id="bubContainer">
+
+            <p class="dialog"> </p>
+            <svg id="speechBub" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48.94 34.13">
+
+                <g id="Layer_1-2">
+                    <path class="cls-1" d="M48.52.27C43.62,7.78,31.03,22.29,2.18,33.55c0,0,24.26,2.08,46.34-14.79" />
+                </g>
+            </svg>
+        </div>
+        <div id="screen3-buttons">
+            <button id="print-cert">Print Certificate of Tokenhood</button>
+            <button id="deliver-token">Deliver token to me</button>
+            <button id="honor-moment">Honor another moment</button>
+        </div>
+
+    </div>
+
+</body>
+
+</html>
