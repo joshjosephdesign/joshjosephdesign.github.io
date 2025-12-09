@@ -174,7 +174,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     async function loadNameScheme() {
-        const response = await fetch('../data/namescheme.json');
+        const response = await fetch('./data/namescheme.json');
         if (!response.ok) {
             throw new Error('Failed to load namescheme.json');
         }
