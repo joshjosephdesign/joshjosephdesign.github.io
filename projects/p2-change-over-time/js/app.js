@@ -4,29 +4,28 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 
     let userResponses = {
-        messageLength: 0,        // Character count from screen2 input
-        message: "",             // Actual message text
-        screwboxChoice: 0,       // 1-4 from screwbox selection
-        moodCoordinates: { x: 0, y: 0 }, // Coordinates from moodbox click
-        ipHash: 0                // Hash from IP address
+        messageLength: 0,
+        message: "",
+        screwboxChoice: 0,
+        moodCoordinates: { x: 0, y: 0 },
+        ipHash: 0
     };
 
-    // Audio context for sound synthesis
+    // Audio context for sound
     const audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
-    // Get IP address and create hash
+    // Get IP address
     async function getIPHash() {
         try {
             const response = await fetch('https://api.ipify.org?format=json');
             const data = await response.json();
             const ip = data.ip;
 
-            // Simple hash function for IP
             let hash = 0;
             for (let i = 0; i < ip.length; i++) {
                 const char = ip.charCodeAt(i);
                 hash = ((hash << 5) - hash) + char;
-                hash = hash & hash; // Convert to 32bit integer
+                hash = hash & hash;
             }
             return Math.abs(hash);
         } catch (error) {
@@ -35,20 +34,18 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     }
 
-    // Typewriter voice sound - like old video game dialog
+    // Typewriter voice sound
     function playTypeSound() {
         const osc = audioContext.createOscillator();
         const gainNode = audioContext.createGain();
 
-        // Random pitch variation for voice-like quality
-        const baseFreq = 150 + Math.random() * 100; // 150-250 Hz range
+        const baseFreq = 150 + Math.random() * 100;
         osc.frequency.setValueAtTime(baseFreq, audioContext.currentTime);
 
-        // Quick envelope for short blip
         gainNode.gain.setValueAtTime(0.15, audioContext.currentTime);
         gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.05);
 
-        osc.type = 'square'; // Old-school square wave
+        osc.type = 'square';
         osc.connect(gainNode);
         gainNode.connect(audioContext.destination);
 
@@ -56,34 +53,31 @@ document.addEventListener("DOMContentLoaded", async () => {
         osc.stop(audioContext.currentTime + 0.05);
     }
 
-    // Screen transition chime - polyphonic chord
+    // Screen transition chime
     function playTransitionChime() {
-        // Big polyphonic chord (C major 9th with extensions)
         const chordNotes = [
-            261.63, // C4
-            329.63, // E4
-            392.00, // G4
-            493.88, // B4
-            587.33, // D5
-            659.25, // E5
-            783.99, // G5
-            880.00  // A5
+            261.63,
+            329.63,
+            392.00,
+            493.88,
+            587.33,
+            659.25,
+            783.99,
+            880.00
         ];
 
-        // Pick 3 random notes from the chord
         const shuffled = [...chordNotes].sort(() => Math.random() - 0.5);
         const selectedNotes = shuffled.slice(0, 3);
 
-        const duration = 2.5; // Longer duration to prevent cutoff
+        const duration = 2.5;
 
         selectedNotes.forEach((freq, index) => {
             const osc = audioContext.createOscillator();
             const gainNode = audioContext.createGain();
 
             osc.frequency.setValueAtTime(freq, audioContext.currentTime);
-            osc.type = 'sine'; // Smooth sine wave for chime
+            osc.type = 'sine';
 
-            // Sustaining envelope with gentle attack and long release
             gainNode.gain.setValueAtTime(0, audioContext.currentTime);
             gainNode.gain.linearRampToValueAtTime(0.08, audioContext.currentTime + 0.1);
             gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + duration);
@@ -91,17 +85,17 @@ document.addEventListener("DOMContentLoaded", async () => {
             osc.connect(gainNode);
             gainNode.connect(audioContext.destination);
 
-            osc.start(audioContext.currentTime + index * 0.05); // Slight delay between notes
+            osc.start(audioContext.currentTime + index * 0.05);
             osc.stop(audioContext.currentTime + duration);
         });
     }
 
     function getCurrentSecondOfDay() {
-        const now = new Date();          // current date & time right now
+        const now = new Date();
 
-        const hours = now.getHours();    // 0–23
-        const minutes = now.getMinutes();// 0–59
-        const seconds = now.getSeconds();// 0–59
+        const hours = now.getHours();
+        const minutes = now.getMinutes();
+        const seconds = now.getSeconds();
 
         const secondsOfDay = hours * 3600 + minutes * 60 + seconds;
 
@@ -119,8 +113,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     function findClosestPart(parts, targetSecond, moodOffset) {
-        // Adjust target second based on mood coordinates with subtle influence
-        // X and Y range from -1 to 1, offset now only ±10 seconds for subtle variation
         const adjustedSecond = targetSecond + Math.floor(moodOffset.x * 5) + Math.floor(moodOffset.y * 5);
 
         let closestPart = null;
@@ -143,8 +135,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             const parts = await loadPartsData();
             const currentSecond = getCurrentSecondOfDay();
 
-            // Wait for user responses to be collected, then find part
-            // This will be called after moodbox click
             window.finalizePartSelection = async () => {
                 const closestPart = findClosestPart(parts, currentSecond, userResponses.moodCoordinates);
 
@@ -160,7 +150,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                 partImage.src = closestPart.image_url;
                 partImage.alt = `Part ${closestPart.part_number}`;
 
-                // Update name and tags based on user responses
                 const nameData = await loadNameScheme();
                 updateArtifactName(nameData, userResponses.ipHash);
                 updateDescription(nameData);
@@ -182,7 +171,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     function seededRandomFromArray(arr, seed) {
-        // Use seed to deterministically pick from array
         const index = seed % arr.length;
         return arr[index];
     }
@@ -192,20 +180,17 @@ document.addEventListener("DOMContentLoaded", async () => {
         return arr[index];
     }
 
+    // Generate artifact name
     function generateArtifactName(names, ipHash) {
-        // Mostly random with subtle IP influence
-        // Use IP hash to slightly bias the random selection
-        const ipInfluence = ipHash % 3; // 0, 1, or 2
+        const ipInfluence = ipHash % 3;
 
         let one, two, three;
 
         if (ipInfluence === 0) {
-            // Use IP-seeded selection for one word only
             one = seededRandomFromArray(names.nameone, ipHash);
             two = randomFromArray(names.nametwo);
             three = randomFromArray(names.namethree);
         } else {
-            // Fully random
             one = randomFromArray(names.nameone);
             two = randomFromArray(names.nametwo);
             three = randomFromArray(names.namethree);
@@ -402,7 +387,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                 ikeimg.classList.add('screen20-position');
             }
             else if (screenNumber === 29) {
-                // Switch circle1 and circle2 to pulse2 animation
                 const circle1 = document.querySelector('#circle1');
                 const circle2 = document.querySelector('#circle2');
                 if (circle1) circle1.classList.add('pulse2');
@@ -415,7 +399,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                         await typewriter(dialog3, "What do you wish to do?", 100);
                         const buttons = document.querySelector('#screen3-buttons');
                         if (buttons) {
-                            // Function to update button position
                             const updateButtonPosition = () => {
                                 const bubContainer = dialog3.closest('#bubContainer');
                                 if (bubContainer) {
@@ -424,11 +407,9 @@ document.addEventListener("DOMContentLoaded", async () => {
                                 }
                             };
 
-                            // Set initial position
                             updateButtonPosition();
                             buttons.classList.add('visible');
 
-                            // Update position on window resize
                             window.addEventListener('resize', updateButtonPosition);
                         }
                     }
@@ -448,8 +429,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     init();
     userResponses.ipHash = await getIPHash();
 
-    // Initialize hue based on time of day
-    // Map seconds of day (0-86400) to hue degrees (0-360)
+    // Hue based on time of day
     const currentSecond = getCurrentSecondOfDay();
     let currentHue = Math.floor((currentSecond / 86400) * 360);
     const huebox = document.querySelector('#huebox');
@@ -663,12 +643,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (deliverTokenButton) {
         deliverTokenButton.addEventListener('click', async () => {
-            // Get the part number text
             const partNumberElement = document.querySelector('#part-number');
             if (partNumberElement) {
                 const partNumber = partNumberElement.textContent;
 
-                // Copy to clipboard
                 try {
                     await navigator.clipboard.writeText(partNumber);
                     console.log('Part number copied to clipboard:', partNumber);
@@ -677,7 +655,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                 }
             }
 
-            // Show screen30 with message
             await showScreen(30);
 
 
