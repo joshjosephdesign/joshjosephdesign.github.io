@@ -114,9 +114,25 @@
 }
 
 .logobox {
-
     background-color: black;
     border: solid 1px black;
+    position: relative;
+    height: auto;
+    transition: height 0.4s ease, max-height 0.4s ease;
+    overflow: hidden;
+}
+
+.logobox.expanded {
+    height: 100vh;
+    max-height: 100vh;
+    overflow-y: auto;
+}
+
+.logo-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 20px;
 }
 
 #logo {
@@ -124,7 +140,104 @@
     font-size: 32pt;
     line-height: 32pt;
     color: white;
-    margin: 20px;
+    margin: 0;
+}
+
+.info-button {
+    width: 20px;
+    height: 20px;
+    min-width: 20px;
+    min-height: 20px;
+    border-radius: 50%;
+    background-color: rgb(0, 0, 0);
+    color: rgb(255, 255, 255);
+    border: 1px solid white;
+    font-family: gtpressura;
+    font-size: 10pt;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    transition: opacity 0.3s ease;
+    margin-top: 0.4em;
+    line-height: 12pt;
+}
+
+.info-button:hover {
+    opacity: 0.8;
+}
+
+.info-button.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.about-content {
+    display: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    padding: 20px;
+    padding-top: 10px;
+    color: white;
+}
+
+.about-content.visible {
+    display: block;
+    opacity: 1;
+}
+
+.close-about {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: none;
+    border: none;
+    color: white;
+    font-size: 30px;
+    cursor: pointer;
+    z-index: 11;
+    line-height: 1;
+}
+
+.close-about:hover {
+    opacity: 0.8;
+}
+
+.about-text {
+    margin-top: 10px;
+}
+
+/* Intro overlay styles */
+#intro-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: black;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    padding-left: 5vw;
+    transition: opacity 0.5s ease;
+}
+
+#intro-overlay.fade-out {
+    opacity: 0;
+    pointer-events: none;
+}
+
+#intro-logo {
+    font-family: doss;
+    font-size: 15vw;
+    line-height: 15vw;
+    color: white;
+    margin: 0;
+    white-space: pre;
+    transition: all 1.2s cubic-bezier(0.4, 0.0, 0.2, 1);
+    transform-origin: top left;
 }
 
 body {
@@ -146,8 +259,13 @@ h2 {
 .sortfilterbox {
     padding: 20px;
     height: calc(100% - 164px);
-
     overflow: scroll;
+    transition: opacity 0.3s ease;
+}
+
+.sortfilterbox.disabled {
+    opacity: 0.3;
+    pointer-events: none;
 }
 
 .filters p {

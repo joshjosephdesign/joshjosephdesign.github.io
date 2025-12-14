@@ -1,50 +1,93 @@
 @font-face {
-    font-family:coda;
-    src: url(cmmcodaprop.woff2) format("woff2");
+    font-family: coda;
+    src: url(fonts/cmmcodaprop.woff2) format("woff2");
 }
+
 @font-face {
-    font-family:hal-ital;
-    src: url(haltimezone-italic.woff2) format("woff2");
+    font-family: hal-ital;
+    src: url(fonts/haltimezone-italic.woff2) format("woff2");
 }
 
-em { font-family: hal-ital, serif; font-style: normal; letter-spacing: 0.1mm;}
-body {font-family: coda, sans-serif;
-background-color: rgb(242, 255, 255);
+em {
+    font-family: hal-ital, serif;
+    font-style: normal;
+    letter-spacing: 0.1mm;
+}
 
-padding: 10px;}
-@media screen and (min-width: 768px) { body {max-width: 70%;}}
-h1, h2, h3 {
-    color:rgb(41, 87, 89);
+body {
+    font-family: coda, sans-serif;
+    background-color: rgb(242, 255, 255);
+
+    padding: 10px;
+}
+
+@media screen and (min-width: 768px) {
+    body {
+        max-width: 70%;
+    }
+}
+
+h1,
+h2,
+h3 {
+    color: rgb(41, 87, 89);
     font-weight: normal;
 }
-p, blockquote {
-    color:cadetblue
+
+p,
+blockquote {
+    color: cadetblue
 }
 
-a {color:rgb(255, 0, 144); text-decoration: none;}
+a {
+    color: rgb(255, 0, 144);
+    text-decoration: none;
+}
 
-.worklist { font-weight: 100;}
+.worklist {
+    font-weight: 100;
+}
 
-a:hover {font-style: italic;}
-.righthand:hover {position: relative; left: 2px; font-style:normal;}
-.lefthand:hover {position: relative; left: -2px; font-style:normal;}
+a:hover {
+    font-style: italic;
+}
 
-.bodyindent {padding-left:3em; padding-bottom: 3em;}
+.righthand:hover {
+    position: relative;
+    left: 2px;
+    font-style: normal;
+}
+
+.lefthand:hover {
+    position: relative;
+    left: -2px;
+    font-style: normal;
+}
+
+.bodyindent {
+    padding-left: 3em;
+    padding-bottom: 3em;
+}
 
 .navfoot {
     width: 6em;
-    height: 3em; 
-     display: flex;
-  align-items: center; /* Vertically centers child elements */
-  justify-content: center; 
-    margin:auto; 
-    border: 1px solid cadetblue; 
-    text-align: center; 
-    padding-left:2em; 
-    padding-right:2em;
-    border-radius: 25px; 
-    background-color: white; 
-    position:fixed; 
-    bottom:15px;}
+    height: 3em;
+    display: flex;
+    align-items: center;
+    /* Vertically centers child elements */
+    justify-content: center;
+    margin: auto;
+    border: 1px solid cadetblue;
+    text-align: center;
+    padding-left: 2em;
+    padding-right: 2em;
+    border-radius: 25px;
+    background-color: white;
+    position: fixed;
+    bottom: 15px;
+}
 
-    .navfoot h2 { margin:0; padding:auto;}
+.navfoot h2 {
+    margin: 0;
+    padding: auto;
+}

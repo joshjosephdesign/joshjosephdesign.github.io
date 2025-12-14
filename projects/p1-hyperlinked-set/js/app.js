@@ -1,4 +1,53 @@
 document.addEventListener("DOMContentLoaded", async () => {
+    // Typewriter animation for intro logo
+    const introOverlay = document.getElementById('intro-overlay');
+    const introLogo = document.getElementById('intro-logo');
+    const typewriterSpan = document.querySelector('.typewriter');
+    const finalLogo = document.getElementById('logo');
+    const text = 'GRATE\nINDEX';
+    let charIndex = 0;
+
+    function typeNextChar() {
+        if (charIndex < text.length) {
+            const char = text[charIndex];
+            typewriterSpan.textContent += char;
+            charIndex++;
+            setTimeout(typeNextChar, 150); // 150ms delay between characters
+        } else {
+            // Typing complete
+            setTimeout(() => {
+                // Get the position of the final logo
+                const logoRect = finalLogo.getBoundingClientRect();
+                const currentRect = introLogo.getBoundingClientRect();
+
+                // Calculate the scale factor
+                const scaleX = logoRect.width / currentRect.width;
+                const scaleY = logoRect.height / currentRect.height;
+                const scale = Math.min(scaleX, scaleY);
+
+                // Calculate translate to move to final position
+                const translateX = logoRect.left - currentRect.left;
+                const translateY = logoRect.top - currentRect.top;
+
+                // Apply transform for smooth scaling and positioning
+                introLogo.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+
+                setTimeout(() => {
+                    // Fade out the overlay after the logo has moved into place
+                    introOverlay.classList.add('fade-out');
+
+                    setTimeout(() => {
+                        // Remove the overlay completely after fade
+                        introOverlay.remove();
+                    }, 500); // Match fade-out transition
+                }, 1200); // Match the movement transition
+            }, 500); // Wait 500ms before shrinking
+        }
+    }
+
+    // Start typing after a brief delay
+    setTimeout(typeNextChar, 300);
+
     //populating site with data from json
     const response = await fetch('data/dataset.json');
     const data = await response.json();
@@ -489,6 +538,55 @@ document.addEventListener("DOMContentLoaded", async () => {
         // Update button states
         sortButtons.forEach(btn => btn.classList.remove('active'));
         button.classList.add('active');
+    });
+
+    // Info button functionality
+    const infoButton = document.querySelector('.info-button');
+    const closeAboutButton = document.querySelector('.close-about');
+    const logobox = document.querySelector('.logobox');
+    const aboutContent = document.querySelector('.about-content');
+    const sortfilterbox = document.querySelector('.sortfilterbox');
+
+    // Store the original height
+    let originalHeight = null;
+
+    infoButton.addEventListener('click', () => {
+        // Capture current height before expanding
+        if (!originalHeight) {
+            originalHeight = logobox.offsetHeight;
+        }
+        logobox.style.height = `${originalHeight}px`;
+
+        // Force reflow
+        logobox.offsetHeight;
+
+        // Show content first (display: block)
+        aboutContent.classList.add('visible');
+
+        // Then expand and fade in
+        requestAnimationFrame(() => {
+            logobox.classList.add('expanded');
+            logobox.style.height = '100vh';
+            infoButton.classList.add('hidden');
+            sortfilterbox.classList.add('disabled');
+        });
+    });
+
+    closeAboutButton.addEventListener('click', () => {
+        // Fade out content
+        aboutContent.style.opacity = '0';
+
+        // Collapse back to original height
+        logobox.style.height = `${originalHeight}px`;
+
+        setTimeout(() => {
+            logobox.classList.remove('expanded');
+            logobox.style.height = '';
+            aboutContent.classList.remove('visible');
+            aboutContent.style.opacity = '';
+            infoButton.classList.remove('hidden');
+            sortfilterbox.classList.remove('disabled');
+        }, 400); // Match transition duration
     });
 
 });
