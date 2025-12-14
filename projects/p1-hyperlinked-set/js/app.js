@@ -540,30 +540,29 @@ document.addEventListener("DOMContentLoaded", async () => {
         button.classList.add('active');
     });
 
-    // Info button functionality
+    // info button functionality
     const infoButton = document.querySelector('.info-button');
     const closeAboutButton = document.querySelector('.close-about');
     const logobox = document.querySelector('.logobox');
     const aboutContent = document.querySelector('.about-content');
     const sortfilterbox = document.querySelector('.sortfilterbox');
 
-    // Store the original height
     let originalHeight = null;
 
     infoButton.addEventListener('click', () => {
-        // Capture current height before expanding
+   
         if (!originalHeight) {
             originalHeight = logobox.offsetHeight;
         }
         logobox.style.height = `${originalHeight}px`;
 
-        // Force reflow
+
         logobox.offsetHeight;
 
-        // Show content first (display: block)
+
         aboutContent.classList.add('visible');
 
-        // Then expand and fade in
+
         requestAnimationFrame(() => {
             logobox.classList.add('expanded');
             logobox.style.height = '100vh';
@@ -573,10 +572,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
     closeAboutButton.addEventListener('click', () => {
-        // Fade out content
+
         aboutContent.style.opacity = '0';
 
-        // Collapse back to original height
+
         logobox.style.height = `${originalHeight}px`;
 
         setTimeout(() => {
@@ -586,7 +585,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             aboutContent.style.opacity = '';
             infoButton.classList.remove('hidden');
             sortfilterbox.classList.remove('disabled');
-        }, 400); // Match transition duration
+        }, 400); 
     });
 
 });
