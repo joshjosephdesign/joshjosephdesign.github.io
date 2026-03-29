@@ -4,6 +4,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <style>
+    /* Prevent double-tap zoom on all interactive elements */
+    button, .punch-cell, .lib-item, .color-swatch, .step-node, .mode-tab, .tag-x, canvas {
+      touch-action: manipulation;
+    }
+  </style>
   <title>Library of Hybrid Objects</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <style>
@@ -1139,6 +1145,74 @@
       background: var(--border2);
     }
 
+    /* Mutation axis picker cards */
+    .mutate-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      padding: 8px;
+      border: 1.5px solid var(--border2);
+      background: var(--bg2);
+      cursor: pointer;
+      transition: border-color 0.1s, background 0.1s;
+      min-width: 80px;
+      position: relative;
+    }
+    .mutate-card:hover { background: var(--bg3); }
+    .mutate-card.sel-x { border-color: #e63329; background: rgba(230,51,41,0.06); }
+    .mutate-card.sel-y { border-color: #1a56d6; background: rgba(26,86,214,0.06); }
+    .mutate-card.sel-z { border-color: #c49a00; background: rgba(196,154,0,0.06); }
+    .mutate-card-name {
+      font-family: 'AntoPlot', sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--ink);
+      text-align: center;
+      max-width: 80px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .mutate-card-axis-label {
+      font-family: 'AntoPlotMono', monospace;
+      font-size: 8px;
+      letter-spacing: 1px;
+      color: var(--ink3);
+      text-align: center;
+    }
+
+    /* Mutation grid cells */
+    .mgrid-cell {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      cursor: pointer;
+      border: 1.5px solid var(--border2);
+      padding: 6px;
+      background: var(--bg2);
+      transition: border-color 0.1s, background 0.1s;
+    }
+    .mgrid-cell:hover { border-color: var(--ink); background: var(--bg3); }
+    .mgrid-cell canvas { display: block; width: 100%; aspect-ratio: 1; }
+    .mgrid-cell-label {
+      font-family: 'AntoPlotMono', monospace;
+      font-size: 7px;
+      letter-spacing: 0.5px;
+      color: var(--ink3);
+      line-height: 1.4;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .mgrid-cell-sources {
+      display: flex;
+      gap: 3px;
+    }
+    .mgrid-cell-dot {
+      width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+    }
+
     /* camera-video removed — using file picker instead */
     #canvas-capture {
       display: none;
@@ -1357,12 +1431,72 @@
       <div class="hdr-right">
         <button class="btn" onclick="importLibrary()">Import</button>
         <button class="btn" onclick="exportLibrary()">Export</button>
+        <button class="btn" onclick="startMutation()">⇌ Mutate</button>
+        <button class="btn" onclick="showMutateGrid()">⊞ Grid</button>
         <button class="btn filled" onclick="newObject()">+ New</button>
       </div>
     </div>
     <!-- Hidden file input for import -->
     <input type="file" id="lib-import-input" accept=".json" style="display:none" onchange="handleLibraryImport(event)">
     <div class="lib-body" id="lib-body"></div>
+  </div>
+
+  <!-- MUTATION PICKER -->
+  <div id="screen-mutate" class="screen">
+    <div class="hdr">
+      <div class="hdr-right">
+        <button class="btn" onclick="showMutateGrid()">Grid view →</button>
+        <button class="btn" onclick="showLibrary()">← Back</button>
+      </div>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:20px 16px;display:flex;flex-direction:column;gap:20px">
+      <div style="font-family:'AntoPlotMono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--ink3)">Hybrid Mutation — pick one polygon per axis</div>
+
+      <!-- X axis — How does it feel? -->
+      <div>
+        <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px">
+          <div style="font-family:'AntoPlotMono',monospace;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#e63329">X Axis</div>
+          <div style="font-family:'AntoPlotMono',monospace;font-size:9px;color:var(--ink3)">— How does it feel?</div>
+        </div>
+        <div id="mutate-x-picker" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+      </div>
+
+      <!-- Y axis — What does it do? -->
+      <div>
+        <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px">
+          <div style="font-family:'AntoPlotMono',monospace;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#1a56d6">Y Axis</div>
+          <div style="font-family:'AntoPlotMono',monospace;font-size:9px;color:var(--ink3)">— What does it do?</div>
+        </div>
+        <div id="mutate-y-picker" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+      </div>
+
+      <!-- Z axis — What does it hold? -->
+      <div>
+        <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px">
+          <div style="font-family:'AntoPlotMono',monospace;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#c49a00">Z Axis</div>
+          <div style="font-family:'AntoPlotMono',monospace;font-size:9px;color:var(--ink3)">— What does it hold?</div>
+        </div>
+        <div id="mutate-z-picker" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+      </div>
+
+      <div style="padding-top:4px">
+        <button class="btn filled" id="btn-mutate-build" style="width:100%;padding:12px;letter-spacing:2px" onclick="buildMutation()" disabled>Build Hybrid →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MUTATION GRID — all possible combinations -->
+  <div id="screen-mutate-grid" class="screen">
+    <div class="hdr">
+      <div class="hdr-right">
+        <button class="btn" onclick="showScreen('screen-mutate');renderMutatePickers()">← Picker</button>
+        <button class="btn" onclick="showLibrary()">Library</button>
+      </div>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:12px 16px" id="mutate-grid-body">
+      <div style="font-family:'AntoPlotMono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--ink3);margin-bottom:12px">All possible hybrids — tap to build</div>
+      <div id="mutate-grid-cells" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px"></div>
+    </div>
   </div>
 
   <!-- OBJECT DETAIL / EDIT OVERLAY -->
@@ -1373,6 +1507,7 @@
       <div style="flex:1;position:relative;min-width:0;display:flex;flex-direction:column">
         <canvas id="obj-detail-canvas" style="flex:1;display:block;width:100%"></canvas>
         <div style="position:absolute;top:10px;right:10px;display:flex;gap:6px">
+          <button class="btn" onclick="exportSelectedSTL()">Export STL</button>
           <button class="btn" id="obj-detail-edit-btn" onclick="toggleObjEdit()">Edit</button>
           <button class="btn" onclick="closeObjDetail()">✕</button>
         </div>
@@ -2629,30 +2764,72 @@
       showScreen('screen-build');
       document.getElementById('build-log').innerHTML = '';
       document.getElementById('btn-accept').disabled = true;
+      document.getElementById('btn-accept').onclick = () => showScreen('screen-name');
       pickRandomColor();
-      setTimeout(() => { initBuildThree(); runBuildAnim(); }, 80);
+      setTimeout(() => requestAnimationFrame(() => {
+        initBuildThree(); runBuildAnim();
+      }), 50);
     }
+
+    // Generation counter — each new initBuildThree() increments this so any
+    // loop closure from a previous build recognises it is stale and stops itself.
+    let _buildGen = 0;
 
     function initBuildThree() {
       const cv = document.getElementById('three-canvas');
-      const W = cv.offsetWidth, H = cv.offsetHeight;
-      if (renderer3) { cancelAnimationFrame(raf3); renderer3.dispose(); }
+
+      const myGen = ++_buildGen;
+      if (raf3) { cancelAnimationFrame(raf3); raf3 = null; }
+
       scene3 = new THREE.Scene();
       scene3.background = new THREE.Color(0xffffff);
       scene3.fog = new THREE.FogExp2(0xfafafa, 0.05);
-      cam3 = new THREE.PerspectiveCamera(48, W / H, 0.01, 100);
+
+      if (!renderer3) {
+        renderer3 = new THREE.WebGLRenderer({ canvas: cv, antialias: true });
+        renderer3.setPixelRatio(Math.min(devicePixelRatio, 2));
+        renderer3.shadowMap.enabled = true;
+      }
+
+      // Force correct size+aspect immediately — cv.offsetWidth may still be 0
+      // if the screen just became visible, so we also fix it on the first live frame.
+      const applySize = () => {
+        const W = cv.offsetWidth, H = cv.offsetHeight;
+        if (W > 0 && H > 0) {
+          renderer3.setSize(W, H);
+          cam3.aspect = W / H;
+          cam3.updateProjectionMatrix();
+        }
+      };
+
+      cam3 = new THREE.PerspectiveCamera(48, cv.offsetWidth / (cv.offsetHeight || 1), 0.01, 100);
       sphB.t = 0.7; sphB.p = 0.95; sphB.r = 7;
       updateCam(cam3, sphB);
-      renderer3 = new THREE.WebGLRenderer({ canvas: cv, antialias: true });
-      renderer3.setPixelRatio(Math.min(devicePixelRatio, 2));
-      renderer3.setSize(W, H);
-      renderer3.shadowMap.enabled = true;
+      applySize();
+
       scene3.add(new THREE.AmbientLight(0xffffff, 1.0));
       const sun = new THREE.DirectionalLight(0xffffff, 0.9); sun.position.set(4, 7, 3); sun.castShadow = true; scene3.add(sun);
       const fill = new THREE.DirectionalLight(0xddeeff, 0.35); fill.position.set(-4, -2, -3); scene3.add(fill);
       const gh = new THREE.GridHelper(12, 12, 0xdddddd, 0xeeeeee); gh.position.y = -WHALF - 0.05; scene3.add(gh);
       addOrbit(cv, sphB, () => updateCam(cam3, sphB));
-      function loop() { raf3 = requestAnimationFrame(loop); renderer3.render(scene3, cam3); } loop();
+
+      function loop() {
+        if (myGen !== _buildGen) return;
+        raf3 = requestAnimationFrame(loop);
+        // Re-apply size each frame until it stabilises (handles the case where
+        // the canvas was still 0×0 when initBuildThree ran).
+        const W = cv.offsetWidth, H = cv.offsetHeight;
+        if (W > 0 && H > 0) {
+          if (renderer3.domElement.width !== Math.round(W * renderer3.getPixelRatio()) ||
+              renderer3.domElement.height !== Math.round(H * renderer3.getPixelRatio())) {
+            renderer3.setSize(W, H);
+            cam3.aspect = W / H;
+            cam3.updateProjectionMatrix();
+          }
+          renderer3.render(scene3, cam3);
+        }
+      }
+      loop();
     }
 
     function log3(msg) {
@@ -2728,22 +2905,46 @@
     }
 
     function addOrbit(el, sph, onU) {
+      // Remove any previously attached orbit handlers to prevent duplicates
+      if (el._orbitCleanup) el._orbitCleanup();
+
       let prev = null, pinch = null;
-      el.addEventListener('pointerdown', e => { prev = { x: e.clientX, y: e.clientY }; e.preventDefault(); }, { passive: false });
-      el.addEventListener('pointermove', e => {
+      const onDown = e => { prev = { x: e.clientX, y: e.clientY }; e.preventDefault(); };
+      const onMove = e => {
         if (!prev) return;
         sph.t -= (e.clientX - prev.x) * 0.008;
         sph.p = Math.max(0.15, Math.min(Math.PI - 0.15, sph.p + (e.clientY - prev.y) * 0.008));
         prev = { x: e.clientX, y: e.clientY }; onU(); e.preventDefault();
-      }, { passive: false });
-      el.addEventListener('pointerup', () => prev = null);
-      el.addEventListener('pointerleave', () => prev = null);
-      el.addEventListener('wheel', e => { sph.r = Math.max(1.5, Math.min(14, sph.r + e.deltaY * 0.006)); onU(); e.preventDefault(); }, { passive: false });
-      el.addEventListener('touchstart', e => { if (e.touches.length === 2) pinch = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); }, { passive: true });
-      el.addEventListener('touchmove', e => {
+      };
+      const onUp = () => prev = null;
+      const onLeave = () => prev = null;
+      const onWheel = e => { sph.r = Math.max(1.5, Math.min(14, sph.r + e.deltaY * 0.006)); onU(); e.preventDefault(); };
+      const onTStart = e => { if (e.touches.length === 2) pinch = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); };
+      const onTMove = e => {
         if (e.touches.length === 2 && pinch) { const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); sph.r = Math.max(1.5, Math.min(14, sph.r - (d - pinch) * 0.02)); pinch = d; onU(); }
-      }, { passive: true });
-      el.addEventListener('touchend', () => pinch = null);
+      };
+      const onTEnd = () => pinch = null;
+
+      el.addEventListener('pointerdown', onDown, { passive: false });
+      el.addEventListener('pointermove', onMove, { passive: false });
+      el.addEventListener('pointerup', onUp);
+      el.addEventListener('pointerleave', onLeave);
+      el.addEventListener('wheel', onWheel, { passive: false });
+      el.addEventListener('touchstart', onTStart, { passive: true });
+      el.addEventListener('touchmove', onTMove, { passive: true });
+      el.addEventListener('touchend', onTEnd);
+
+      el._orbitCleanup = () => {
+        el.removeEventListener('pointerdown', onDown);
+        el.removeEventListener('pointermove', onMove);
+        el.removeEventListener('pointerup', onUp);
+        el.removeEventListener('pointerleave', onLeave);
+        el.removeEventListener('wheel', onWheel);
+        el.removeEventListener('touchstart', onTStart);
+        el.removeEventListener('touchmove', onTMove);
+        el.removeEventListener('touchend', onTEnd);
+        delete el._orbitCleanup;
+      };
     }
 
     /* ── POINT ORDERING OVERLAY ── */
@@ -2999,35 +3200,110 @@
       setTimeout(() => { initLibThree(); if (library.length) selectObj(library[0].id); }, 80);
     }
 
+    // ── SHARED OFFSCREEN RENDERER for thumbnails ──────────────────────────────
+    // One renderer, one context. We render each thumb into it then copy pixels
+    // to the thumb canvas with drawImage. Never disposed.
+    let _thumbRenderer = null;
+    function getThumbRenderer() {
+      if (_thumbRenderer) return _thumbRenderer;
+      const oc = document.createElement('canvas');
+      oc.width = 144; oc.height = 108;
+      _thumbRenderer = new THREE.WebGLRenderer({ canvas: oc, antialias: true, alpha: true });
+      _thumbRenderer.setPixelRatio(1);
+      _thumbRenderer.setSize(144, 108);
+      return _thumbRenderer;
+    }
+
     function drawThumb(cid, obj) {
       const cv = document.getElementById(cid); if (!cv) return;
       const W = cv.offsetWidth || 144, H = cv.offsetHeight || 108;
       cv.width = W; cv.height = H;
-      const ren = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true }); ren.setSize(W, H);
+      const ren = getThumbRenderer();
+      ren.setSize(W, H);
       const sc = new THREE.Scene(); sc.background = new THREE.Color(0xfafafa);
-      const cm = new THREE.PerspectiveCamera(48, 72 / 54, 0.1, 100); cm.position.set(3, 2.5, 3); cm.lookAt(0, 0, 0);
+      const cm = new THREE.PerspectiveCamera(48, W / H, 0.1, 100);
+      cm.position.set(3, 2.5, 3); cm.lookAt(0, 0, 0);
       sc.add(new THREE.AmbientLight(0xffffff, 1.0));
       const dl = new THREE.DirectionalLight(0xffffff, 0.9); dl.position.set(4, 6, 3); sc.add(dl);
-      sc.add(makeHull(obj.color, obj.grids, obj.polyOrders)); // Load the point order
-      ren.render(sc, cm); ren.dispose();
+      sc.add(makeHull(obj.color, obj.grids, obj.polyOrders));
+      ren.render(sc, cm);
+      // Copy rendered pixels to the thumb canvas
+      const ctx = cv.getContext('2d');
+      ctx.drawImage(ren.domElement, 0, 0, W, H);
+    }
+
+    // ── PERSISTENT LIB RENDERER ───────────────────────────────────────────────
+    let _libRenderer = null;
+    function getLibRenderer(cv) {
+      if (_libRenderer) return _libRenderer;
+      _libRenderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true });
+      _libRenderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+      _libRenderer.shadowMap.enabled = true;
+      return _libRenderer;
     }
 
     function initLibThree() {
       const cv = document.getElementById('lib-canvas'); if (!cv) return;
       const W = cv.offsetWidth || 300, H = cv.offsetHeight || 300;
-      if (libThree) { cancelAnimationFrame(libThree.raf); libThree.renderer.dispose(); }
+      if (libThree) { cancelAnimationFrame(libThree.raf); libThree.raf = null; }
       const sc = new THREE.Scene(); sc.background = new THREE.Color(0xfafafa); sc.fog = new THREE.FogExp2(0xfafafa, 0.05);
       const cm = new THREE.PerspectiveCamera(48, W / H, 0.01, 100);
       sphL.t = 0.6; sphL.p = 0.9; sphL.r = 5; updateCam(cm, sphL);
-      const ren = new THREE.WebGLRenderer({ canvas: cv, antialias: true }); ren.setPixelRatio(Math.min(devicePixelRatio, 2)); ren.setSize(W, H); ren.shadowMap.enabled = true;
+      const ren = getLibRenderer(cv);
+      // If the renderer already exists it's bound to an old (now removed) canvas
+      // from a previous renderLibrary() call — rebind it to the new one.
+      if (ren.domElement !== cv) {
+        cv.parentNode && cv.parentNode.replaceChild(ren.domElement, cv);
+        ren.domElement.id = 'lib-canvas';
+        ren.domElement.style.cssText = 'flex:1;display:block;width:100%';
+      }
+      ren.setSize(W, H);
       sc.add(new THREE.AmbientLight(0xffffff, 1.0));
       const sun = new THREE.DirectionalLight(0xffffff, 0.9); sun.position.set(4, 6, 3); sun.castShadow = true; sc.add(sun);
       const fill = new THREE.DirectionalLight(0xddeeff, 0.3); fill.position.set(-4, -2, -3); sc.add(fill);
       const gh = new THREE.GridHelper(8, 8, 0xdddddd, 0xeeeeee); gh.position.y = -2; sc.add(gh);
       libThree = { sc, cm, renderer: ren, mesh: null, raf: null };
       function loop() { libThree.raf = requestAnimationFrame(loop); if (libThree.mesh) libThree.mesh.rotation.y += 0.004; ren.render(sc, cm); } loop();
-      addOrbit(cv, sphL, () => updateCam(cm, sphL));
+      addOrbit(ren.domElement, sphL, () => updateCam(cm, sphL));
     }
+
+    // ── PERSISTENT NAME RENDERER ──────────────────────────────────────────────
+    let _nameRenderer = null;
+    let nameThree = null;
+    function initNameThree() {
+      const cv = document.getElementById('name-three-canvas'); if (!cv) return;
+      if (nameThree) { cancelAnimationFrame(nameThree.raf); nameThree.raf = null; nameThree = null; }
+      const W = cv.offsetWidth || 300, H = cv.offsetHeight || 300;
+      if (W < 4 || H < 4) return;
+      cv.width = W; cv.height = H;
+      if (!_nameRenderer) {
+        _nameRenderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true });
+        _nameRenderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+      } else if (_nameRenderer.domElement !== cv) {
+        // Reattach to the live canvas element
+        cv.parentNode && cv.parentNode.replaceChild(_nameRenderer.domElement, cv);
+        _nameRenderer.domElement.id = 'name-three-canvas';
+        _nameRenderer.domElement.style.cssText = 'flex:1;display:block;width:100%';
+      }
+      _nameRenderer.setSize(W, H);
+      const sc = new THREE.Scene(); sc.background = new THREE.Color(0xfafafa); sc.fog = new THREE.FogExp2(0xfafafa, 0.05);
+      const cm = new THREE.PerspectiveCamera(48, W / H, 0.01, 100);
+      const sph = { t: 0.6, p: 0.9, r: 5 }; updateCam(cm, sph);
+      sc.add(new THREE.AmbientLight(0xffffff, 1.0));
+      const sun = new THREE.DirectionalLight(0xffffff, 0.9); sun.position.set(4, 7, 3); sc.add(sun);
+      const fill = new THREE.DirectionalLight(0xddeeff, 0.35); fill.position.set(-4, -2, -3); sc.add(fill);
+      const gh = new THREE.GridHelper(8, 8, 0xdddddd, 0xeeeeee); gh.position.y = -2; sc.add(gh);
+      const mesh = makeHull(selColor, grids, polyOrders);
+      sc.add(mesh);
+      addOrbit(_nameRenderer.domElement, sph, () => updateCam(cm, sph));
+      function loop() { nameThree.raf = requestAnimationFrame(loop); mesh.rotation.y += 0.004; _nameRenderer.render(sc, cm); }
+      nameThree = { renderer: _nameRenderer, raf: null };
+      loop();
+    }
+
+    // ── PERSISTENT DETAIL RENDERER ────────────────────────────────────────────
+    let _detailRenderer = null;
+    let _detailRaf = null;
 
     function selectObj(id) {
       selectedId = id;
@@ -3080,10 +3356,19 @@
       // Render 3D into overlay canvas
       setTimeout(() => {
         const cv = document.getElementById('obj-detail-canvas'); if (!cv) return;
+        // Stop any running detail loop
+        if (_detailRaf) { cancelAnimationFrame(_detailRaf); _detailRaf = null; }
         const W = cv.offsetWidth || 300, H = cv.offsetHeight || 220;
         cv.width = W; cv.height = H;
-        const ren = new THREE.WebGLRenderer({ canvas: cv, antialias: true });
-        ren.setPixelRatio(Math.min(devicePixelRatio, 2)); ren.setSize(W, H);
+        if (!_detailRenderer) {
+          _detailRenderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true });
+          _detailRenderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+        } else if (_detailRenderer.domElement !== cv) {
+          cv.parentNode && cv.parentNode.replaceChild(_detailRenderer.domElement, cv);
+          _detailRenderer.domElement.id = 'obj-detail-canvas';
+          _detailRenderer.domElement.style.cssText = 'flex:1;display:block;width:100%';
+        }
+        _detailRenderer.setSize(W, H);
         const sc = new THREE.Scene(); sc.background = new THREE.Color(0xfafafa);
         sc.fog = new THREE.FogExp2(0xfafafa, 0.05);
         const cm = new THREE.PerspectiveCamera(48, W / H, 0.01, 100);
@@ -3092,12 +3377,12 @@
         const dl = new THREE.DirectionalLight(0xffffff, 0.9); dl.position.set(4, 6, 3); sc.add(dl);
         const gh = new THREE.GridHelper(8, 8, 0xdddddd, 0xeeeeee); gh.position.y = -2; sc.add(gh);
         const mesh = makeHull(obj.color, obj.grids, obj.polyOrders); sc.add(mesh);
-        let rafId;
-        function loop() { rafId = requestAnimationFrame(loop); mesh.rotation.y += 0.005; ren.render(sc, cm); }
+        function loop() { _detailRaf = requestAnimationFrame(loop); mesh.rotation.y += 0.005; _detailRenderer.render(sc, cm); }
         loop();
-        addOrbit(cv, sph, () => updateCam(cm, sph));
-        // Stop when overlay closes
-        document.getElementById('obj-detail-overlay')._disposeDetail = () => { cancelAnimationFrame(rafId); ren.dispose(); };
+        addOrbit(_detailRenderer.domElement, sph, () => updateCam(cm, sph));
+        document.getElementById('obj-detail-overlay')._disposeDetail = () => {
+          if (_detailRaf) { cancelAnimationFrame(_detailRaf); _detailRaf = null; }
+        };
       }, 60);
     }
 
@@ -3239,6 +3524,62 @@
 
     /* ── IMPORT / EXPORT ── */
 
+    function exportSelectedSTL() {
+      const obj = library.find(o => o.id === selectedId);
+      if (!obj) { notify('No object selected'); return; }
+
+      // Build the hull mesh (same path as the viewer)
+      const mesh = makeHull(obj.color, obj.grids, obj.polyOrders);
+      mesh.updateMatrixWorld(true);
+
+      const geo = mesh.geometry;
+      if (!geo) { notify('No geometry to export'); return; }
+
+      // Ensure we have a non-indexed, computed-normals geometry
+      const exportGeo = geo.index ? geo.toNonIndexed() : geo.clone();
+      exportGeo.computeVertexNormals();
+
+      const pos = exportGeo.attributes.position;
+      const nor = exportGeo.attributes.normal;
+      const triCount = pos.count / 3;
+
+      // Binary STL: 80-byte header + 4-byte tri count + triCount * 50 bytes
+      const buf = new ArrayBuffer(80 + 4 + triCount * 50);
+      const view = new DataView(buf);
+
+      // Header: object name, null-padded to 80 bytes
+      const headerStr = ('STL ' + obj.name).slice(0, 80);
+      for (let i = 0; i < 80; i++) view.setUint8(i, i < headerStr.length ? headerStr.charCodeAt(i) : 0);
+      view.setUint32(80, triCount, true);
+
+      let offset = 84;
+      for (let t = 0; t < triCount; t++) {
+        const base = t * 3;
+        // Normal (use first vertex normal — flat shaded so all 3 are the same)
+        view.setFloat32(offset,      nor.getX(base),     true); offset += 4;
+        view.setFloat32(offset,      nor.getY(base),     true); offset += 4;
+        view.setFloat32(offset,      nor.getZ(base),     true); offset += 4;
+        // 3 vertices
+        for (let v = 0; v < 3; v++) {
+          const i = base + v;
+          view.setFloat32(offset,    pos.getX(i),        true); offset += 4;
+          view.setFloat32(offset,    pos.getY(i),        true); offset += 4;
+          view.setFloat32(offset,    pos.getZ(i),        true); offset += 4;
+        }
+        view.setUint16(offset, 0, true); offset += 2; // attribute byte count
+      }
+
+      const blob = new Blob([buf], { type: 'application/octet-stream' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = (obj.name.replace(/[^a-z0-9_\-]/gi, '_') || 'hull') + '.stl';
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      notify('STL exported — ' + obj.name);
+    }
+
     function exportLibrary() {
       if (!library.length) { notify('Nothing to export'); return; }
       const json = JSON.stringify(library, null, 2);
@@ -3307,32 +3648,8 @@
     function showScreen(id) {
       document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
       document.getElementById(id).classList.add('active');
-      if (id !== 'screen-build' && raf3) cancelAnimationFrame(raf3);
+      if (id !== 'screen-build' && raf3) { cancelAnimationFrame(raf3); raf3 = null; }
       if (id === 'screen-name') setTimeout(initNameThree, 60);
-    }
-
-    let nameThree = null;
-    function initNameThree() {
-      const cv = document.getElementById('name-three-canvas'); if (!cv) return;
-      if (nameThree) { cancelAnimationFrame(nameThree.raf); nameThree.renderer.dispose(); nameThree = null; }
-      const W = cv.offsetWidth || 300, H = cv.offsetHeight || 300;
-      if (W < 4 || H < 4) return;
-      cv.width = W; cv.height = H;
-      const sc = new THREE.Scene(); sc.background = new THREE.Color(0xfafafa); sc.fog = new THREE.FogExp2(0xfafafa, 0.05);
-      const cm = new THREE.PerspectiveCamera(48, W / H, 0.01, 100);
-      const sph = { t: 0.6, p: 0.9, r: 5 }; updateCam(cm, sph);
-      const ren = new THREE.WebGLRenderer({ canvas: cv, antialias: true });
-      ren.setPixelRatio(Math.min(devicePixelRatio, 2)); ren.setSize(W, H);
-      sc.add(new THREE.AmbientLight(0xffffff, 1.0));
-      const sun = new THREE.DirectionalLight(0xffffff, 0.9); sun.position.set(4, 7, 3); sc.add(sun);
-      const fill = new THREE.DirectionalLight(0xddeeff, 0.35); fill.position.set(-4, -2, -3); sc.add(fill);
-      const gh = new THREE.GridHelper(8, 8, 0xdddddd, 0xeeeeee); gh.position.y = -2; sc.add(gh);
-      const mesh = makeHull(selColor, grids, polyOrders);
-      sc.add(mesh);
-      addOrbit(cv, sph, () => updateCam(cm, sph));
-      function loop() { nameThree.raf = requestAnimationFrame(loop); mesh.rotation.y += 0.004; ren.render(sc, cm); }
-      nameThree = { renderer: ren, raf: null };
-      loop();
     }
     function newObject() {
       for (let i = 0; i < 3; i++) { grids[i] = Array(N).fill(null).map(() => Array(N).fill(false)); polyOrders[i] = null; }
@@ -3342,6 +3659,240 @@
     function notify(msg) {
       const el = document.getElementById('notif'); el.textContent = msg; el.classList.add('show');
       setTimeout(() => el.classList.remove('show'), 2000);
+    }
+
+    /* ── MUTATION MODE ── */
+    // Tracks selected source object id per axis
+    let mutateSelX = null, mutateSelY = null, mutateSelZ = null;
+
+    function startMutation() {
+      if (library.length < 1) { notify('Need at least one object in library'); return; }
+      mutateSelX = null; mutateSelY = null; mutateSelZ = null;
+      renderMutatePickers();
+      showScreen('screen-mutate');
+    }
+
+    function showMutateGrid() {
+      if (library.length < 1) { notify('Need at least one object in library'); return; }
+      showScreen('screen-mutate-grid');
+      buildMutateGrid();
+    }
+
+    function buildMutateGrid() {
+      const container = document.getElementById('mutate-grid-cells');
+      if (!container) return;
+      container.innerHTML = '';
+
+      // Count label
+      const total = library.length * library.length * library.length;
+      document.querySelector('#mutate-grid-body > div').textContent =
+        `All ${total} possible hybrid${total !== 1 ? 's' : ''} — tap to build`;
+
+      // Use the shared thumb renderer to draw each combo.
+      // We stagger with setTimeout to keep UI responsive.
+      const combos = [];
+      for (const sx of library) for (const sy of library) for (const sz of library) {
+        combos.push({ sx, sy, sz });
+      }
+
+      combos.forEach(({ sx, sy, sz }, idx) => {
+        const cell = document.createElement('div');
+        cell.className = 'mgrid-cell';
+        const cid = `mgc-${sx.id}-${sy.id}-${sz.id}`;
+
+        // Source colour dots + name labels
+        const label = [sx.name, sy.name, sz.name].join(' · ');
+        cell.innerHTML = `
+          <canvas id="${cid}"></canvas>
+          <div class="mgrid-cell-sources">
+            <div class="mgrid-cell-dot" style="background:${sx.color || '#111'}"></div>
+            <div class="mgrid-cell-dot" style="background:${sy.color || '#111'}"></div>
+            <div class="mgrid-cell-dot" style="background:${sz.color || '#111'}"></div>
+          </div>
+          <div class="mgrid-cell-label" title="${label}">${label}</div>`;
+
+        cell.addEventListener('click', () => {
+          // Pre-select these sources and jump straight to build
+          mutateSelX = sx.id; mutateSelY = sy.id; mutateSelZ = sz.id;
+          buildMutation();
+        });
+
+        container.appendChild(cell);
+
+        // Stagger rendering so the browser stays responsive
+        setTimeout(() => {
+          const cv = document.getElementById(cid); if (!cv) return;
+          // Build hybrid grids on the fly
+          const hybridGrids = [
+            sx.grids[0].map(r => [...r]),
+            sy.grids[1].map(r => [...r]),
+            sz.grids[2].map(r => [...r])
+          ];
+          const hybridPolyOrders = [
+            sx.polyOrders ? (sx.polyOrders[0] ? sx.polyOrders[0].map(p => ({...p})) : null) : null,
+            sy.polyOrders ? (sy.polyOrders[1] ? sy.polyOrders[1].map(p => ({...p})) : null) : null,
+            sz.polyOrders ? (sz.polyOrders[2] ? sz.polyOrders[2].map(p => ({...p})) : null) : null,
+          ];
+          // Average colour of the three sources
+          const avgColor = blendColors(sx.color || '#111', sy.color || '#111', sz.color || '#111');
+
+          const W = cv.offsetWidth || 110, H = W; // square
+          cv.width = W; cv.height = H;
+          const ren = getThumbRenderer();
+          ren.setSize(W, H);
+          const sc = new THREE.Scene(); sc.background = new THREE.Color(0xfafafa);
+          const cm = new THREE.PerspectiveCamera(48, 1, 0.01, 100);
+          cm.position.set(3, 2.5, 3); cm.lookAt(0, 0, 0);
+          sc.add(new THREE.AmbientLight(0xffffff, 1.0));
+          const dl = new THREE.DirectionalLight(0xffffff, 0.9); dl.position.set(4, 6, 3); sc.add(dl);
+          sc.add(makeHull(avgColor, hybridGrids, hybridPolyOrders));
+          ren.render(sc, cm);
+          const ctx = cv.getContext('2d');
+          ctx.drawImage(ren.domElement, 0, 0, W, H);
+        }, idx * 18); // 18ms stagger — ~55 renders/sec, smooth even for large libraries
+      });
+    }
+
+    function blendColors(c1, c2, c3) {
+      const parse = h => {
+        const n = parseInt(h.replace('#',''), 16);
+        return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+      };
+      const [r1,g1,b1] = parse(c1), [r2,g2,b2] = parse(c2), [r3,g3,b3] = parse(c3);
+      const r = Math.round((r1+r2+r3)/3), g = Math.round((g1+g2+g3)/3), b = Math.round((b1+b2+b3)/3);
+      return '#' + [r,g,b].map(v => v.toString(16).padStart(2,'0')).join('');
+    }
+
+    function renderMutatePickers() {
+      renderMutatePicker('mutate-x-picker', 0, 'x');  // axis index 0 = X polygon
+      renderMutatePicker('mutate-y-picker', 1, 'y');  // axis index 1 = Y polygon
+      renderMutatePicker('mutate-z-picker', 2, 'z');  // axis index 2 = Z polygon
+    }
+
+    function renderMutatePicker(containerId, axisIdx, axisKey) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+      container.innerHTML = '';
+      const axisColors = ['#e63329', '#1a56d6', '#c49a00'];
+      const color = axisColors[axisIdx];
+      const selVar = axisKey === 'x' ? mutateSelX : axisKey === 'y' ? mutateSelY : mutateSelZ;
+
+      library.forEach(obj => {
+        const poly = (obj.polygons && obj.polygons[axisIdx]) ||
+          gridWorldPoly(obj.grids[axisIdx], obj.polyOrders ? obj.polyOrders[axisIdx] : null) || [];
+
+        const card = document.createElement('div');
+        const selClass = `sel-${axisKey}`;
+        card.className = 'mutate-card' + (selVar === obj.id ? ' ' + selClass : '');
+        card.dataset.id = obj.id;
+        card.dataset.axis = axisKey;
+
+        // Mini SVG polygon preview
+        let svgContent = '';
+        if (poly && poly.length >= 2) {
+          const xs = poly.map(p => p.x), ys = poly.map(p => p.y);
+          const minX = Math.min(...xs), maxX = Math.max(...xs);
+          const minY = Math.min(...ys), maxY = Math.max(...ys);
+          const rangeX = maxX - minX || 1, rangeY = maxY - minY || 1;
+          const pad = 5, sz = 60;
+          const scale = (sz - pad * 2) / Math.max(rangeX, rangeY);
+          const offX = pad + ((sz - pad * 2) - rangeX * scale) / 2;
+          const offY = pad + ((sz - pad * 2) - rangeY * scale) / 2;
+          const toSvg = (x, y) => `${(offX + (x - minX) * scale).toFixed(1)},${(offY + (maxY - y) * scale).toFixed(1)}`;
+          const points = poly.map(p => toSvg(p.x, p.y)).join(' ');
+          svgContent = `<svg width="60" height="60" viewBox="0 0 60 60" style="border:1px solid ${color}33;background:var(--bg)">
+            <polygon points="${points}" fill="${color}22" stroke="${color}" stroke-width="1.5" stroke-linejoin="round"/>
+          </svg>`;
+        } else {
+          svgContent = `<div style="width:60px;height:60px;border:1px solid var(--border);background:var(--bg2);display:flex;align-items:center;justify-content:center"><span style="font-size:8px;color:var(--ink3)">—</span></div>`;
+        }
+
+        card.innerHTML = `${svgContent}
+          <div class="mutate-card-name" title="${obj.name}">${obj.name}</div>
+          <div class="mutate-card-axis-label">${['X','Y','Z'][axisIdx]} · ${poly.length}pts</div>`;
+
+        card.addEventListener('click', () => selectMutateCard(obj.id, axisKey, axisIdx));
+        container.appendChild(card);
+      });
+    }
+
+    function selectMutateCard(id, axisKey, axisIdx) {
+      if (axisKey === 'x') mutateSelX = id;
+      else if (axisKey === 'y') mutateSelY = id;
+      else mutateSelZ = id;
+
+      // Re-render only the affected picker
+      renderMutatePicker(`mutate-${axisKey}-picker`, axisIdx, axisKey);
+
+      // Enable build button only when all three axes are selected
+      document.getElementById('btn-mutate-build').disabled = !(mutateSelX && mutateSelY && mutateSelZ);
+    }
+
+    function buildMutation() {
+      if (!mutateSelX || !mutateSelY || !mutateSelZ) { notify('Pick one source per axis'); return; }
+
+      const srcX = library.find(o => o.id === mutateSelX);
+      const srcY = library.find(o => o.id === mutateSelY);
+      const srcZ = library.find(o => o.id === mutateSelZ);
+      if (!srcX || !srcY || !srcZ) { notify('Source object missing'); return; }
+
+      // Build hybrid grids: take grid[0] (X polygon) from srcX, grid[1] from srcY, grid[2] from srcZ
+      const hybridGrids = [
+        srcX.grids[0].map(r => [...r]),
+        srcY.grids[1].map(r => [...r]),
+        srcZ.grids[2].map(r => [...r])
+      ];
+      const hybridPolyOrders = [
+        srcX.polyOrders ? (srcX.polyOrders[0] ? srcX.polyOrders[0].map(p => ({...p})) : null) : null,
+        srcY.polyOrders ? (srcY.polyOrders[1] ? srcY.polyOrders[1].map(p => ({...p})) : null) : null,
+        srcZ.polyOrders ? (srcZ.polyOrders[2] ? srcZ.polyOrders[2].map(p => ({...p})) : null) : null,
+      ];
+
+      // Store sources for auto-fill on name screen
+      window._mutationSources = { srcX, srcY, srcZ };
+
+      // Overwrite working grids/polyOrders with the hybrid
+      for (let i = 0; i < 3; i++) {
+        grids[i] = hybridGrids[i];
+        polyOrders[i] = hybridPolyOrders[i];
+      }
+
+      // Run the build animation
+      showScreen('screen-build');
+      document.getElementById('build-log').innerHTML = '';
+      document.getElementById('btn-accept').disabled = true;
+      pickRandomColor();
+
+      // Override btn-accept to go to name screen with auto-filled mutation tags
+      document.getElementById('btn-accept').onclick = () => {
+        preFillMutationTags();
+        showScreen('screen-name');
+      };
+
+      setTimeout(() => { initBuildThree(); runBuildAnim(); }, 80);
+    }
+
+    function preFillMutationTags() {
+      const src = window._mutationSources;
+      if (!src) return;
+
+      // X → feels, Y → does, Z → holds
+      tagFeels = [...(src.srcX.feels || src.srcX.tags || [])];
+      tagDoes  = [...(src.srcY.does  || [])];
+      tagHolds = [...(src.srcZ.holds || [])];
+      renderAllTags();
+
+      // Auto-fill name field with hybrid suggestion
+      const nameField = document.getElementById('obj-name');
+      if (nameField && !nameField.value) {
+        const parts = [src.srcX.name, src.srcY.name, src.srcZ.name];
+        const unique = [...new Set(parts)];
+        nameField.value = unique.join(' × ');
+      }
+
+      // Restore normal btn-accept behaviour for future normal builds
+      document.getElementById('btn-accept').onclick = () => showScreen('screen-name');
+      window._mutationSources = null;
     }
 
     window.addEventListener('resize', () => {
