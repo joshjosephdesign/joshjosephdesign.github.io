@@ -1182,6 +1182,136 @@
       text-align: center;
     }
 
+    /* Presentation mode */
+    #screen-present { background: #000; }
+    #pres-shell {
+      flex: 1;
+      min-height: 0;
+      position: relative;
+      background: #000;
+    }
+    #pres-grid-wrap {
+      position: absolute;
+      inset: 0;
+      opacity: 1;
+      transform: scale(1);
+      transition: opacity 0.2s ease, transform 0.28s ease;
+    }
+    #screen-present.pres-detail-open #pres-grid-wrap {
+      opacity: 0;
+      pointer-events: none;
+      transform: scale(0.985);
+    }
+    #pres-detail-view {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      min-height: 0;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(12px);
+      transition: opacity 0.22s ease, transform 0.28s ease;
+    }
+    #screen-present.pres-detail-open #pres-detail-view {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+    #screen-present.pres-detail-animating #pres-detail-view {
+      opacity: 0;
+    }
+    #pres-detail-model-wrap {
+      position: relative;
+      flex: 1 1 auto;
+      min-width: 0;
+      min-height: 0;
+      background: #000;
+    }
+    #pres-detail-panel {
+      width: min(34vw, 420px);
+      max-width: 42vw;
+      min-width: 280px;
+      border-left: 1px solid rgba(255,255,255,0.08);
+      padding: 14px 16px 24px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      background: #000;
+    }
+    #pres-detail-fly {
+      position: fixed;
+      z-index: 120;
+      pointer-events: none;
+      overflow: hidden;
+      background: #000;
+      box-shadow: 0 18px 44px rgba(0,0,0,0.35);
+      transform-origin: center center;
+    }
+
+    .btn-pres {
+      font-family: 'AntoPlotMono', monospace;
+      font-size: 9px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      padding: 5px 10px;
+      border: 1px solid rgba(255,255,255,0.25);
+      background: rgba(0,0,0,0.4);
+      color: rgba(255,255,255,0.7);
+      cursor: pointer;
+      border-radius: 0;
+      -webkit-appearance: none;
+      touch-action: manipulation;
+      transition: border-color 0.1s, color 0.1s;
+    }
+    .btn-pres:hover, .btn-pres:active { border-color: rgba(255,255,255,0.6); color: #fff; }
+
+    .pres-cell {
+      position: relative;
+      cursor: pointer;
+      overflow: hidden;
+      background: #111;
+      display: block;
+      transition: transform 0.15s ease;
+      /* height is set explicitly by JS to match offsetWidth */
+    }
+    .pres-cell:hover {
+      transform: translateY(-1px);
+    }
+    .pres-cell canvas {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .pres-cell-label {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      padding: 18px 8px 7px;
+      background: linear-gradient(transparent, rgba(0,0,0,0.75));
+      font-family: 'AntoPlot', sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.85);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      opacity: 0;
+      transition: opacity 0.2s;
+      z-index: 1;
+    }
+    .pres-cell:hover .pres-cell-label, .pres-cell.pres-sel .pres-cell-label { opacity: 1; }
+    .pres-cell.pres-sel { outline: 1.5px solid rgba(255,255,255,0.5); z-index: 2; }
+
+    .pres-det-tag {
+      font-family: 'AntoPlotMono', monospace;
+      font-size: 10px;
+      padding: 3px 8px;
+      border: 1px solid rgba(255,255,255,0.2);
+      color: rgba(255,255,255,0.75);
+    }
+
     /* Mutation grid cells */
     .mgrid-cell {
       display: flex;
@@ -1433,6 +1563,7 @@
         <button class="btn" onclick="exportLibrary()">Export</button>
         <button class="btn" onclick="startMutation()">⇌ Mutate</button>
         <button class="btn" onclick="showMutateGrid()">⊞ Grid</button>
+        <button class="btn" onclick="startPresentation()">◼ Present</button>
         <button class="btn filled" onclick="newObject()">+ New</button>
       </div>
     </div>
@@ -1496,6 +1627,51 @@
     <div style="flex:1;overflow-y:auto;padding:12px 16px" id="mutate-grid-body">
       <div style="font-family:'AntoPlotMono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--ink3);margin-bottom:12px">All possible hybrids — tap to build</div>
       <div id="mutate-grid-cells" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px"></div>
+    </div>
+  </div>
+
+  <!-- PRESENTATION MODE -->
+  <div id="screen-present" class="screen">
+    <div id="pres-hdr" style="height:44px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 14px;z-index:20;background:#000;border-bottom:1px solid rgba(255,255,255,0.08)">
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn-pres" onclick="showLibrary()">← Exit</button>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn-pres" id="pres-fullscreen-btn" onclick="togglePresentationFullscreen()">⛶ Fullscreen</button>
+        <button class="btn-pres" onclick="presZoom(-1)" title="More columns">−</button>
+        <span id="pres-zoom-label" style="font-family:'AntoPlotMono',monospace;font-size:9px;letter-spacing:2px;color:rgba(255,255,255,0.5);min-width:20px;text-align:center"></span>
+        <button class="btn-pres" onclick="presZoom(+1)" title="Fewer columns">+</button>
+      </div>
+    </div>
+    <div id="pres-shell">
+      <div id="pres-grid-wrap">
+        <div id="pres-grid" style="height:100%;overflow-y:auto;background:#000;padding:6px"></div>
+      </div>
+      <div id="pres-detail-view">
+        <div id="pres-detail-model-wrap">
+          <canvas id="pres-det-canvas" style="display:block;width:100%;height:100%;"></canvas>
+          <div style="position:absolute;bottom:6px;left:50%;transform:translateX(-50%);font-family:'AntoPlotMono',monospace;font-size:8px;letter-spacing:2px;color:rgba(255,255,255,0.25);pointer-events:none;white-space:nowrap">DRAG TO ORBIT</div>
+        </div>
+        <div id="pres-detail-panel">
+          <div style="display:flex;justify-content:flex-start">
+            <button class="btn-pres" onclick="presCloseDetail()">← Back</button>
+          </div>
+          <div id="pres-det-name" style="font-family:'AntoPlotLab',sans-serif;font-size:28px;color:#fff;line-height:1.05"></div>
+          <div id="pres-det-notes" style="font-family:'AntoPlotMono',monospace;font-size:10px;color:rgba(255,255,255,0.45);white-space:pre-wrap;line-height:1.6"></div>
+          <div>
+            <div style="font-family:'AntoPlotMono',monospace;font-size:8px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.25);margin-bottom:6px">How does it feel?</div>
+            <div id="pres-det-feels" style="display:flex;flex-wrap:wrap;gap:4px"></div>
+          </div>
+          <div>
+            <div style="font-family:'AntoPlotMono',monospace;font-size:8px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.25);margin-bottom:6px">What can it do?</div>
+            <div id="pres-det-does" style="display:flex;flex-wrap:wrap;gap:4px"></div>
+          </div>
+          <div>
+            <div style="font-family:'AntoPlotMono',monospace;font-size:8px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.25);margin-bottom:6px">What does it hold?</div>
+            <div id="pres-det-holds" style="display:flex;flex-wrap:wrap;gap:4px"></div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -3615,10 +3791,18 @@
           );
           if (!valid.length) throw new Error('No valid objects found in file');
 
-          // Merge: skip objects whose id already exists, add new ones
-          const existingIds = new Set(library.map(o => o.id));
-          const toAdd = valid.filter(o => !existingIds.has(o.id));
-          const dupes = valid.length - toAdd.length;
+          // Merge: skip duplicates already in the library and duplicates inside the import file
+          const seenIds = new Set(library.map(o => o.id));
+          const toAdd = [];
+          let dupes = 0;
+          valid.forEach(o => {
+            if (seenIds.has(o.id)) {
+              dupes++;
+              return;
+            }
+            seenIds.add(o.id);
+            toAdd.push(o);
+          });
 
           if (!toAdd.length) {
             notify(`All ${valid.length} objects already in library`);
@@ -3646,6 +3830,7 @@
     }
 
     function showScreen(id) {
+      if (id !== 'screen-present' && _presItems && _presItems.length) stopPresentation();
       document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
       document.getElementById(id).classList.add('active');
       if (id !== 'screen-build' && raf3) { cancelAnimationFrame(raf3); raf3 = null; }
@@ -3761,6 +3946,331 @@
       const [r1,g1,b1] = parse(c1), [r2,g2,b2] = parse(c2), [r3,g3,b3] = parse(c3);
       const r = Math.round((r1+r2+r3)/3), g = Math.round((g1+g2+g3)/3), b = Math.round((b1+b2+b3)/3);
       return '#' + [r,g,b].map(v => v.toString(16).padStart(2,'0')).join('');
+    }
+
+    /* ── PRESENTATION MODE ─────────────────────────────────────────────────── */
+    let _presItems = [];
+    let _presSelId = null;
+    let _presColumns = 3;
+    const PRES_COL_MIN = 1, PRES_COL_MAX = 8;
+    let _presGridRenderer = null;
+    let _presGridRaf = null;
+    let _presLayoutTimer = null;
+
+    function startPresentation() {
+      if (!library.length) { notify('No objects to present'); return; }
+      _presSelId = null;
+      const screen = document.getElementById('screen-present');
+      screen.classList.remove('pres-detail-open', 'pres-detail-animating');
+      updatePresentationFullscreenButton();
+      showScreen('screen-present');
+      requestAnimationFrame(() => buildPresGrid());
+    }
+
+    function presZoom(delta) {
+      _presColumns = Math.max(PRES_COL_MIN, Math.min(PRES_COL_MAX, _presColumns - delta));
+      buildPresGrid();
+    }
+
+    function buildPresGrid() {
+      _presItems.forEach(it => {
+        if (it.observer) it.observer.disconnect();
+        if (it.mesh) disposeThreeNode(it.mesh);
+      });
+      _presItems = [];
+
+      const grid = document.getElementById('pres-grid');
+      grid.innerHTML = '';
+      grid.style.display = 'grid';
+      grid.style.gap = '4px';
+      grid.style.gridTemplateColumns = `repeat(${_presColumns}, 1fr)`;
+      grid.style.alignContent = 'start';
+      document.getElementById('pres-zoom-label').textContent = _presColumns;
+
+      library.forEach((obj, idx) => {
+        const cell = document.createElement('div');
+        cell.className = 'pres-cell';
+        cell.id = 'pc-pres-' + obj.id;
+        const cv = document.createElement('canvas');
+        cv.style.cssText = 'position:absolute;top:0;left:0;display:block;';
+        const lbl = document.createElement('div');
+        lbl.className = 'pres-cell-label';
+        lbl.textContent = obj.name;
+        cell.appendChild(cv); cell.appendChild(lbl);
+        cell.addEventListener('click', () => presSelectObj(obj.id));
+        grid.appendChild(cell);
+
+        const sc = new THREE.Scene();
+        sc.background = new THREE.Color(0x000000);
+        const cm = new THREE.PerspectiveCamera(48, 1, 0.01, 100);
+        const sph = { t: 0.5 + idx * 0.32, p: 0.88, r: 5 };
+        updateCam(cm, sph);
+        sc.add(new THREE.AmbientLight(0xffffff, 0.78));
+        const dl = new THREE.DirectionalLight(0xffffff, 1.15); dl.position.set(4, 7, 3); sc.add(dl);
+        const fl = new THREE.DirectionalLight(0x8899ff, 0.25); fl.position.set(-4, -2, -3); sc.add(fl);
+        const mesh = makeHull(obj.color, obj.grids, obj.polyOrders);
+        sc.add(mesh);
+
+        const item = {
+          obj, cell, canvas: cv, ctx: cv.getContext('2d'), idx,
+          scene: sc, camera: cm, mesh, visible: true, angle: idx * 0.45, observer: null
+        };
+        item.observer = new IntersectionObserver(entries => {
+          item.visible = !!(entries[0] && entries[0].isIntersecting);
+        }, { root: grid, rootMargin: '120px' });
+        item.observer.observe(cell);
+        _presItems.push(item);
+      });
+
+      requestAnimationFrame(() => presRefreshThumbLayout());
+      presStartGridLoop();
+    }
+
+    let _presDetailRaf = null;
+    let _presDetailRenderer = null;
+    let _presDetailDispose = null;
+
+    function getPresGridRenderer() {
+      if (_presGridRenderer) return _presGridRenderer;
+      const oc = document.createElement('canvas');
+      oc.width = 256;
+      oc.height = 256;
+      _presGridRenderer = new THREE.WebGLRenderer({ canvas: oc, antialias: true, alpha: false });
+      _presGridRenderer.setPixelRatio(1);
+      _presGridRenderer.setClearColor(0x000000, 1);
+      return _presGridRenderer;
+    }
+
+    function presRenderGridItem(item) {
+      const cv = item.canvas;
+      if (!cv || !cv.isConnected) return;
+      const W = item.cell.offsetWidth || 200;
+      const H = W;
+      if (W < 4 || H < 4) return;
+      if (cv.width !== W || cv.height !== H) {
+        cv.width = W;
+        cv.height = H;
+      }
+
+      const ren = getPresGridRenderer();
+      ren.setSize(W, H, false);
+      item.angle += 0.006;
+      item.mesh.rotation.y = item.angle;
+      ren.render(item.scene, item.camera);
+
+      if (!item.ctx) return;
+      item.ctx.clearRect(0, 0, W, H);
+      item.ctx.drawImage(ren.domElement, 0, 0, W, H);
+    }
+
+    function presStartGridLoop() {
+      if (_presGridRaf) return;
+      const loop = () => {
+        _presGridRaf = requestAnimationFrame(loop);
+        const screen = document.getElementById('screen-present');
+        if (!screen.classList.contains('active')) return;
+        if (screen.classList.contains('pres-detail-open')) return;
+        _presItems.forEach(item => {
+          if (item.visible) presRenderGridItem(item);
+        });
+      };
+      _presGridRaf = requestAnimationFrame(loop);
+    }
+
+    function presRefreshThumbLayout() {
+      _presItems.forEach(item => {
+        const S = item.cell.offsetWidth || 200;
+        item.cell.style.height = S + 'px';
+        item.canvas.width = S;
+        item.canvas.height = S;
+      });
+
+      if (_presLayoutTimer) clearTimeout(_presLayoutTimer);
+      _presLayoutTimer = setTimeout(() => {
+        _presItems.forEach(item => {
+          const S = item.cell.offsetWidth || 200;
+          item.cell.style.height = S + 'px';
+        });
+      }, 340);
+    }
+
+    function presSelectObj(id) {
+      if (_presSelId === id) return;
+      _presSelId = id;
+
+      const obj = library.find(o => o.id === id);
+      const item = _presItems.find(it => it.obj.id === id);
+      if (!obj || !item) return;
+      presShowDetail(obj);
+      presAnimateIntoDetail(item);
+    }
+
+    function presShowDetail(obj) {
+      document.getElementById('pres-det-name').textContent = obj.name;
+      document.getElementById('pres-det-notes').textContent = obj.notes || '';
+      const renderTags = (elId, arr) => {
+        const el = document.getElementById(elId);
+        el.innerHTML = (arr && arr.length)
+          ? arr.map(t => `<div class="pres-det-tag">${t}</div>`).join('')
+          : `<span style="font-family:'AntoPlotMono',monospace;font-size:9px;color:rgba(255,255,255,0.2)">—</span>`;
+      };
+      renderTags('pres-det-feels', obj.feels || obj.tags || []);
+      renderTags('pres-det-does', obj.does || []);
+      renderTags('pres-det-holds', obj.holds || []);
+
+      const cv = document.getElementById('pres-det-canvas');
+      if (!cv) return;
+
+      if (_presDetailRaf) { cancelAnimationFrame(_presDetailRaf); _presDetailRaf = null; }
+      if (_presDetailDispose) { _presDetailDispose(); _presDetailDispose = null; }
+
+      setTimeout(() => {
+        const W = cv.offsetWidth || 300, H = cv.offsetHeight || 300;
+        cv.width = W; cv.height = H;
+
+        if (!_presDetailRenderer) {
+          _presDetailRenderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true });
+          _presDetailRenderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+          _presDetailRenderer.setClearColor(0x000000, 1);
+        } else if (_presDetailRenderer.domElement !== cv) {
+          cv.parentNode && cv.parentNode.replaceChild(_presDetailRenderer.domElement, cv);
+          _presDetailRenderer.domElement.id = 'pres-det-canvas';
+          _presDetailRenderer.domElement.style.cssText = 'display:block;width:100%;height:100%;min-height:0;';
+        }
+        _presDetailRenderer.setSize(W, H);
+
+        const sc = new THREE.Scene();
+        sc.background = new THREE.Color(0x000000);
+        const cm = new THREE.PerspectiveCamera(48, W / H, 0.01, 100);
+        const sph = { t: 0.6, p: 0.88, r: 5 };
+        updateCam(cm, sph);
+        sc.add(new THREE.AmbientLight(0xffffff, 0.8));
+        const dl = new THREE.DirectionalLight(0xffffff, 1.2); dl.position.set(4, 7, 3); sc.add(dl);
+        const fl = new THREE.DirectionalLight(0x8899ff, 0.4); fl.position.set(-4, -2, -3); sc.add(fl);
+        const mesh = makeHull(obj.color, obj.grids, obj.polyOrders);
+        sc.add(mesh);
+
+        addOrbit(_presDetailRenderer.domElement, sph, () => updateCam(cm, sph));
+        _presDetailDispose = () => disposeThreeNode(mesh);
+
+        function loop() {
+          _presDetailRaf = requestAnimationFrame(loop);
+          mesh.rotation.y += 0.003;
+          const cW = _presDetailRenderer.domElement.offsetWidth;
+          const cH = _presDetailRenderer.domElement.offsetHeight;
+          if (cW > 0 && cH > 0 &&
+            (_presDetailRenderer.domElement.width !== Math.round(cW * _presDetailRenderer.getPixelRatio()) ||
+             _presDetailRenderer.domElement.height !== Math.round(cH * _presDetailRenderer.getPixelRatio()))) {
+            _presDetailRenderer.setSize(cW, cH);
+            cm.aspect = cW / cH;
+            cm.updateProjectionMatrix();
+          }
+          _presDetailRenderer.render(sc, cm);
+        }
+        loop();
+      }, 60);
+    }
+
+    function presAnimateIntoDetail(item) {
+      const screen = document.getElementById('screen-present');
+      screen.classList.add('pres-detail-open', 'pres-detail-animating');
+
+      const src = item.cell.getBoundingClientRect();
+      const targetEl = document.getElementById('pres-detail-model-wrap');
+      const target = targetEl.getBoundingClientRect();
+      const ghost = document.createElement('div');
+      ghost.id = 'pres-detail-fly';
+      ghost.style.left = src.left + 'px';
+      ghost.style.top = src.top + 'px';
+      ghost.style.width = src.width + 'px';
+      ghost.style.height = src.height + 'px';
+      const img = document.createElement('img');
+      img.src = item.canvas.toDataURL('image/png');
+      img.style.cssText = 'width:100%;height:100%;display:block;object-fit:cover;';
+      ghost.appendChild(img);
+      document.body.appendChild(ghost);
+
+      requestAnimationFrame(() => {
+        ghost.style.transition = 'left 0.34s cubic-bezier(0.22,1,0.36,1), top 0.34s cubic-bezier(0.22,1,0.36,1), width 0.34s cubic-bezier(0.22,1,0.36,1), height 0.34s cubic-bezier(0.22,1,0.36,1), opacity 0.2s ease';
+        ghost.style.left = target.left + 'px';
+        ghost.style.top = target.top + 'px';
+        ghost.style.width = target.width + 'px';
+        ghost.style.height = target.height + 'px';
+      });
+
+      const cleanup = () => {
+        if (ghost.parentNode) ghost.parentNode.removeChild(ghost);
+        screen.classList.remove('pres-detail-animating');
+      };
+      ghost.addEventListener('transitionend', cleanup, { once: true });
+      setTimeout(cleanup, 420);
+    }
+
+    function presCloseDetail() {
+      _presSelId = null;
+      const screen = document.getElementById('screen-present');
+      screen.classList.remove('pres-detail-open', 'pres-detail-animating');
+      document.getElementById('pres-det-name').textContent = '';
+      document.getElementById('pres-det-notes').textContent = '';
+      document.getElementById('pres-det-feels').innerHTML = '';
+      document.getElementById('pres-det-does').innerHTML = '';
+      document.getElementById('pres-det-holds').innerHTML = '';
+      if (_presDetailRaf) { cancelAnimationFrame(_presDetailRaf); _presDetailRaf = null; }
+      if (_presDetailDispose) { _presDetailDispose(); _presDetailDispose = null; }
+    }
+
+    function stopPresentation() {
+      _presItems.forEach(it => {
+        if (it.observer) it.observer.disconnect();
+        if (it.mesh) disposeThreeNode(it.mesh);
+      });
+      _presItems = [];
+      _presSelId = null;
+      if (_presGridRaf) { cancelAnimationFrame(_presGridRaf); _presGridRaf = null; }
+      if (_presLayoutTimer) { clearTimeout(_presLayoutTimer); _presLayoutTimer = null; }
+      if (_presDetailRaf) { cancelAnimationFrame(_presDetailRaf); _presDetailRaf = null; }
+      if (_presDetailDispose) { _presDetailDispose(); _presDetailDispose = null; }
+      if (_presDetailRenderer) { _presDetailRenderer.dispose(); _presDetailRenderer = null; }
+      if (_presGridRenderer) { _presGridRenderer.dispose(); _presGridRenderer = null; }
+      const ghost = document.getElementById('pres-detail-fly');
+      if (ghost && ghost.parentNode) ghost.parentNode.removeChild(ghost);
+      document.getElementById('screen-present').classList.remove('pres-detail-open', 'pres-detail-animating');
+      updatePresentationFullscreenButton();
+    }
+
+    function isPresentationFullscreen() {
+      return document.fullscreenElement === document.documentElement || document.fullscreenElement === document.body;
+    }
+
+    function updatePresentationFullscreenButton() {
+      const btn = document.getElementById('pres-fullscreen-btn');
+      if (!btn) return;
+      btn.textContent = isPresentationFullscreen() ? '⤢ Exit Fullscreen' : '⛶ Fullscreen';
+    }
+
+    async function togglePresentationFullscreen() {
+      try {
+        if (isPresentationFullscreen()) {
+          if (document.exitFullscreen) await document.exitFullscreen();
+        } else {
+          const el = document.documentElement;
+          if (el.requestFullscreen) await el.requestFullscreen();
+        }
+      } catch (err) {
+        notify('Fullscreen unavailable');
+      }
+      updatePresentationFullscreenButton();
+    }
+
+    function disposeThreeNode(node) {
+      if (!node) return;
+      node.traverse(obj => {
+        if (obj.geometry) obj.geometry.dispose && obj.geometry.dispose();
+        if (obj.material) {
+          if (Array.isArray(obj.material)) obj.material.forEach(m => m && m.dispose && m.dispose());
+          else obj.material.dispose && obj.material.dispose();
+        }
+      });
     }
 
     function renderMutatePickers() {
@@ -3898,7 +4408,11 @@
     window.addEventListener('resize', () => {
       if (renderer3) { const c = document.getElementById('three-canvas'); renderer3.setSize(c.offsetWidth, c.offsetHeight); cam3.aspect = c.offsetWidth / c.offsetHeight; cam3.updateProjectionMatrix(); }
       if (libThree) { const c = document.getElementById('lib-canvas'); if (c) { libThree.renderer.setSize(c.offsetWidth, c.offsetHeight); libThree.cm.aspect = c.offsetWidth / c.offsetHeight; libThree.cm.updateProjectionMatrix(); } }
+      if (document.getElementById('screen-present').classList.contains('active') && _presItems.length) {
+        requestAnimationFrame(() => presRefreshThumbLayout());
+      }
     });
+    document.addEventListener('fullscreenchange', updatePresentationFullscreenButton);
 
     init();
   </script>
