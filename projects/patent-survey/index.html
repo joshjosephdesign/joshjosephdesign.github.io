@@ -135,13 +135,69 @@
       margin-top: 8px;
       display: none;
     }
+
+    #clockin {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      padding-top: 80px;
+    }
+
+    #clockin-label {
+      font-size: 22px;
+      font-weight: 400;
+    }
+
+    #contributor-name {
+      width: 100%;
+      font-size: 16px;
+      font-family: inherit;
+      border: none;
+      border-bottom: 1.5px solid #111;
+      padding: 8px 0;
+      outline: none;
+      background: transparent;
+      color: #111;
+    }
+
+    #contributor-name:focus {
+      border-bottom-color: #333;
+    }
+
+    #clockin-btn {
+      align-self: flex-start;
+      background: #111;
+      color: #fff;
+      border: none;
+      padding: 12px 32px;
+      font-size: 15px;
+      font-family: inherit;
+      cursor: pointer;
+      letter-spacing: 0.02em;
+    }
+
+    #clockin-btn:hover {
+      background: #333;
+    }
+
+    #clockin-btn:disabled {
+      background: #ccc;
+      cursor: default;
+    }
   </style>
 </head>
 
 <body>
   <div id="app">
     <div id="progress"></div>
-    <div id="loading">Loading...</div>
+
+    <div id="clockin">
+      <div id="clockin-label">What's your name?</div>
+      <input id="contributor-name" type="text" placeholder="Your name..." autocomplete="off" />
+      <button id="clockin-btn" disabled>Clock In</button>
+    </div>
+
+    <div id="loading" style="display:none">Loading...</div>
     <div id="survey" style="display:none">
       <div id="image-wrap">
         <img id="patent-img" alt="Patent figure" />
@@ -151,7 +207,7 @@
       <div id="error-msg">Something went wrong. Please try again.</div>
       <button id="submit-btn">Submit</button>
       <div id="next-wrap">
-        <div id="thanks">Answer recorded.</div>
+        <div id="thanks">Thank you for your contribution.</div>
         <button id="next-btn">Try another →</button>
       </div>
     </div>
@@ -1723,12 +1779,42 @@
       "What does this feel like?",
       "What world is this from?",
       "What are you looking at?",
-      "Describe the vibe."
+      "Describe the vibe.",
+      "What’s their job?",
+      "What genre is this?",
+      "Give it an aura.",
+      "What’s going on, medically?",
+      "Who could this be?",
+      "Describe the scenario, briefly."
+
     ];
 
-    let answerCounts = {};   // filename -> count of responses
+    let answerCounts = {};
     let currentImage = null;
     let currentQuestion = null;
+    let contributorName = "";
+
+    // ── Clock-in logic ──
+    const nameInput = document.getElementById("contributor-name");
+    const clockinBtn = document.getElementById("clockin-btn");
+
+    nameInput.addEventListener("input", () => {
+      clockinBtn.disabled = nameInput.value.trim().length === 0;
+    });
+
+    nameInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && nameInput.value.trim().length > 0) startSession();
+    });
+
+    clockinBtn.addEventListener("click", startSession);
+
+    async function startSession() {
+      contributorName = nameInput.value.trim();
+      document.getElementById("clockin").style.display = "none";
+      document.getElementById("loading").style.display = "block";
+      await fetchCounts();
+      showSurvey();
+    }
 
     async function fetchCounts() {
       try {
@@ -1755,7 +1841,7 @@
     function updateProgress() {
       const answered = IMAGES.filter(f => answerCounts[f] && answerCounts[f] > 0).length;
       document.getElementById("progress").textContent =
-        IMAGES.length > 0 ? `${answered} / ${IMAGES.length} images answered` : "";
+        IMAGES.length > 0 ? `${answered} / ${IMAGES.length} queries completed` : "";
     }
 
     function showSurvey() {
@@ -1792,6 +1878,7 @@
             image: currentImage,
             question: currentQuestion,
             answer: answer,
+            contributor: contributorName,
             timestamp: new Date().toISOString()
           })
         });
@@ -1811,11 +1898,7 @@
       showSurvey();
     });
 
-    // Init
-    (async () => {
-      await fetchCounts();
-      showSurvey();
-    })();
+    // Init — waits for clock-in before loading
   </script>
 </body>
 
