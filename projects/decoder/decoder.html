@@ -1,0 +1,467 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Glyph Reader</title>
+<style>
+:root{box-sizing:border-box;--bg:#000;--fg:#fff;--ov:rgba(0,0,0,.7)}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);overflow:hidden}
+video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+#o{position:absolute;left:0;right:0;bottom:0;max-height:45%;overflow:auto;margin:0;padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));background:var(--ov);font:14px/1.35 ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere}
+#o:empty{display:none}
+#cam{position:absolute;top:calc(8px + env(safe-area-inset-top,0px));right:8px;max-width:calc(100% - 16px);z-index:2;font:13px system-ui,sans-serif;color:var(--fg);background:var(--ov);border:1px solid rgba(255,255,255,.3);border-radius:6px;padding:4px 6px}
+#cam:empty{display:none}
+#ui{position:absolute;top:calc(8px + env(safe-area-inset-top,0px));left:8px;z-index:2;display:flex;flex-direction:column;align-items:flex-start;gap:6px;font:13px system-ui,sans-serif}
+#ui button{font:inherit;color:var(--fg);background:var(--ov);border:1px solid rgba(255,255,255,.3);border-radius:6px;padding:4px 10px}
+#ui button[aria-pressed=true]{background:#fff;color:#000}
+#rst,#map,#st{display:none}
+.scan #rst{display:inline-block}.scan #map,.scan #st{display:block}
+#map{background:var(--ov);image-rendering:pixelated;border:1px solid rgba(255,255,255,.3);max-width:40vw}
+#st{background:var(--ov);padding:2px 6px;border-radius:4px;font:12px ui-monospace,Menlo,monospace}
+</style></head>
+<body>
+<video id="v" playsinline muted autoplay></video>
+<select id="cam" aria-label="Camera"></select>
+<div id="ui"><div><button id="scan" aria-pressed="false">Scan</button> <button id="rst">Reset</button></div><canvas id="map" width="1" height="1"></canvas><div id="st"></div></div>
+<pre id="o"></pre>
+<script>
+const v=document.getElementById('v'),out=document.getElementById('o');
+const cv=document.createElement('canvas'),cx=cv.getContext('2d',{willReadFrequently:true});
+let lastT=0,SCALE=0,MISS=0; // SCALE: processing scale learned from the last good frame (0 = full)
+
+const camSel=document.getElementById('cam');let looping=false;
+const savedCam=()=>{try{return localStorage.getItem('glyphCam')||'';}catch(e){return '';}};
+async function listCams(){ // labels are only available after permission is granted
+  try{const ds=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='videoinput');
+    const cur=v.srcObject&&v.srcObject.getVideoTracks()[0],curId=cur&&cur.getSettings().deviceId;
+    camSel.innerHTML='';
+    ds.forEach((d,i)=>{const o=document.createElement('option');o.value=d.deviceId;o.textContent=d.label||('Camera '+(i+1));camSel.appendChild(o);});
+    if(curId)camSel.value=curId;
+  }catch(e){}}
+async function start(id){
+  id=id||savedCam();
+  if(v.srcObject){v.srcObject.getTracks().forEach(t=>t.stop());v.srcObject=null;}
+  const base={width:{ideal:3840},height:{ideal:2160}};
+  try{
+    let s;
+    try{s=await navigator.mediaDevices.getUserMedia({video:id?{...base,deviceId:{exact:id}}:{...base,facingMode:{ideal:'environment'}},audio:false});}
+    catch(e){if(!id)throw e;s=await navigator.mediaDevices.getUserMedia({video:{...base,facingMode:{ideal:'environment'}},audio:false});}
+    v.srcObject=s;await v.play();SCALE=0;MISS=0;
+    try{const tr=s.getVideoTracks()[0];await tr.applyConstraints({advanced:[{focusMode:'continuous'}]});}catch(e){}
+    await listCams();
+    if(!looping){looping=true;loop();}
+  }catch(e){out.textContent='camera unavailable - tap to retry';}
+}
+camSel.onchange=()=>{try{localStorage.setItem('glyphCam',camSel.value);}catch(e){}out.textContent='';start(camSel.value);};
+try{navigator.mediaDevices.addEventListener('devicechange',listCams);}catch(e){}
+out.onclick=()=>{if(!v.srcObject)start();};
+const scanBtn=document.getElementById('scan'),mapC=document.getElementById('map'),stEl=document.getElementById('st');
+let SCANNING=false;
+scanBtn.onclick=()=>{SCANNING=!SCANNING;scanBtn.setAttribute('aria-pressed',SCANNING);document.body.classList.toggle('scan',SCANNING);out.textContent='';if(SCANNING&&!SG)stEl.textContent='move slowly over the sheet';};
+document.getElementById('rst').onclick=()=>{scanReset();out.textContent='';stEl.textContent='move slowly over the sheet';drawMap(null);};
+function loop(){
+  if(v.videoWidth){
+    let t='';try{t=process();}catch(e){}
+    if(SCANNING){if(SG)t=SG.text;if(!t&&SG===null)stEl.textContent='move slowly over the sheet';}
+    const now=Date.now();
+    if(t){out.textContent=t;lastT=now;MISS=0;}else{if(++MISS>=3)SCALE=0;if(now-lastT>1200)out.textContent='';}
+  }
+  setTimeout(loop,30);
+}
+
+/* ---------- helpers ---------- */
+const TAU=Math.PI*2,wrap=a=>Math.atan2(Math.sin(a),Math.cos(a));
+const POOL={};
+function pool(k,Ty,n){let b=POOL[k];if(!b||b.length!==n||!(b instanceof Ty))b=POOL[k]=new Ty(n);return b;}
+function integ(a,W,H,key){const S=W+1,I=key?pool(key,Float64Array,S*(H+1)):new Float64Array(S*(H+1));
+  for(let y=0;y<H;y++){let r=0;const o=y*W,p=(y+1)*S,q=y*S;for(let x=0;x<W;x++){r+=a[o+x];I[p+x+1]=I[q+x+1]+r;}}return I;}
+function boxSum(I,S,x0,y0,x1,y1){return I[y1*S+x1]-I[y0*S+x1]-I[y1*S+x0]+I[y0*S+x0];}
+function fft1(re,im,n,off,st){ // in-place radix-2 on strided data
+  for(let i=1,j=0;i<n;i++){let b=n>>1;for(;j&b;b>>=1)j^=b;j^=b;
+    if(i<j){const a=off+i*st,c=off+j*st;let t=re[a];re[a]=re[c];re[c]=t;t=im[a];im[a]=im[c];im[c]=t;}}
+  for(let len=2;len<=n;len<<=1){const ang=-TAU/len,wr=Math.cos(ang),wi=Math.sin(ang),h=len>>1;
+    for(let i=0;i<n;i+=len){let cr=1,ci=0;
+      for(let k=0;k<h;k++){const a=off+(i+k)*st,b=off+(i+k+h)*st;
+        const xr=re[b]*cr-im[b]*ci,xi=re[b]*ci+im[b]*cr;
+        re[b]=re[a]-xr;im[b]=im[a]-xi;re[a]+=xr;im[a]+=xi;
+        const t=cr*wr-ci*wi;ci=cr*wi+ci*wr;cr=t;}}}}
+function basis(xn,yn,o){o[0]=1;o[1]=xn;o[2]=yn;o[3]=xn*xn;o[4]=xn*yn;o[5]=yn*yn;o[6]=xn*xn*xn;o[7]=xn*xn*yn;o[8]=xn*yn*yn;o[9]=yn*yn*yn;return o;}
+function polyRow(c,yn){ // cubic in xn for fixed yn: returns [a0,a1,a2,a3]
+  return [c[0]+c[2]*yn+c[5]*yn*yn+c[9]*yn*yn*yn, c[1]+c[4]*yn+c[8]*yn*yn, c[3]+c[7]*yn, c[6]];}
+function solve(A,b,n){ // gaussian elimination, A n*n row-major
+  for(let i=0;i<n;i++){let p=i;for(let r=i+1;r<n;r++)if(Math.abs(A[r*n+i])>Math.abs(A[p*n+i]))p=r;
+    if(Math.abs(A[p*n+i])<1e-12)return null;
+    if(p!==i){for(let c=0;c<n;c++){const t=A[i*n+c];A[i*n+c]=A[p*n+c];A[p*n+c]=t;}const t=b[i];b[i]=b[p];b[p]=t;}
+    for(let r=i+1;r<n;r++){const f=A[r*n+i]/A[i*n+i];if(!f)continue;for(let c=i;c<n;c++)A[r*n+c]-=f*A[i*n+c];b[r]-=f*b[i];}}
+  const x=new Float64Array(n);for(let i=n-1;i>=0;i--){let s=b[i];for(let c=i+1;c<n;c++)s-=A[i*n+c]*x[c];x[i]=s/A[i*n+i];}return x;}
+function inkMap3(px,W,x0,y0,x1,y1,oR,oG,oB,oM,ring,col){ // local 25x25 mean minus value, for R,G,B at once (+ their max)
+  const R=12,w=x1-x0,w3=3*w,NR=2*R+2;
+  const hrow=y=>{let a=0,b=0,c=0;const o=y*W,h=(y%NR)*w3;
+    for(let x=x0;x<Math.min(x1,x0+R);x++){const i=4*(o+x);a+=px[i];b+=px[i+1];c+=px[i+2];}
+    for(let x=x0,k=h;x<x1;x++,k+=3){if(x+R<x1){const i=4*(o+x+R);a+=px[i];b+=px[i+1];c+=px[i+2];}
+      if(x-R-1>=x0){const i=4*(o+x-R-1);a-=px[i];b-=px[i+1];c-=px[i+2];}ring[k]=a;ring[k+1]=b;ring[k+2]=c;}};
+  col.fill(0);
+  for(let y=y0;y<Math.min(y1,y0+R);y++){hrow(y);const h=(y%NR)*w3;for(let k=0;k<w3;k++)col[k]+=ring[h+k];}
+  const rc=new Float64Array(w);for(let x=x0;x<x1;x++)rc[x-x0]=1/(Math.min(x1,x+R+1)-Math.max(x0,x-R));
+  for(let y=y0;y<y1;y++){
+    if(y+R<y1){hrow(y+R);const h=((y+R)%NR)*w3;for(let k=0;k<w3;k++)col[k]+=ring[h+k];}
+    if(y-R-1>=y0){const h=((y-R-1)%NR)*w3;for(let k=0;k<w3;k++)col[k]-=ring[h+k];}
+    const ry=1/(Math.min(y1,y+R+1)-Math.max(y0,y-R)),o=y*W;
+    for(let x=x0,k=0;x<x1;x++,k+=3){const f=rc[x-x0]*ry,q=o+x,i=4*q;
+      let r=col[k]*f-px[i],g=col[k+1]*f-px[i+1],b=col[k+2]*f-px[i+2];r=r>0?r:0;g=g>0?g:0;b=b>0?b:0;
+      oR[q]=r;oG[q]=g;oB[q]=b;oM[q]=r>g?(r>b?r:b):(g>b?g:b);}}}
+const median=a=>{if(!a.length)return 0;const s=Float64Array.from(a).sort();return s[s.length>>1];};
+
+/* ---------- main ---------- */
+function process(){
+  const vw=v.videoWidth,vh=v.videoHeight,cap=Math.min(1,Math.sqrt(8.3e6/(vw*vh)));
+  const sc=SCALE?Math.min(cap,SCALE):cap,W=Math.round(vw*sc),H=Math.round(vh*sc),N=W*H;
+  cv.width=W;cv.height=H;cx.drawImage(v,0,0,W,H);
+  const px=cx.getImageData(0,0,W,H).data,g=pool('g',Uint8Array,N);
+  // geometry uses the darkest channel, so every ink (even yellow) reads as a dark stroke
+  for(let i=0;i<N;i++){const r=px[4*i],gg=px[4*i+1],b=px[4*i+2];g[i]=r<gg?(r<b?r:b):(gg<b?gg:b);}
+
+  // 1) find the glyph block: 40px tiles with strong 4-fold edge symmetry (/ and \ strokes) but weak 2-fold (not stripes)
+  const T=40,tw=Math.floor(W/T),th=Math.floor(H/T),NT=tw*th;
+  const R4=new Float64Array(NT),I4=new Float64Array(NT),R2=new Float64Array(NT),I2=new Float64Array(NT),MM=new Float64Array(NT),CC=new Float64Array(NT);
+  // orientation per color channel: in each channel every cell shows a single stroke (one per ink layer), even where
+  // differently colored strokes cross; for black-only prints all three channels see the same thing
+  const W4=4*W;
+  for(let y=1;y<th*T-1;y+=2){const ro=((y/T)|0)*tw;
+    for(let x=1;x<tw*T-1;x+=2){const q=ro+((x/T)|0);let hit=0;
+      for(let ch=0,i=4*(y*W+x);ch<3;ch++,i++){const gx=px[i+4]-px[i-4],gy=px[i+W4]-px[i-W4],m=gx*gx+gy*gy;if(m<400)continue;
+        const ar=gx*gx-gy*gy,ai=2*gx*gy;R4[q]+=(ar*ar-ai*ai)/m;I4[q]+=2*ar*ai/m;R2[q]+=ar;I2[q]+=ai;MM[q]+=m;hit=1;}
+      CC[q]+=hit;}}
+  // hysteresis: strong tiles (clear 4-fold strokes) seed the block, weaker tiles with the same stroke angle may join it
+  const ok=new Uint8Array(NT),C4=new Float64Array(NT);let sr=0,si=0;
+  for(let q=0;q<NT;q++){if(CC[q]<T*T/4*.08||Math.hypot(R2[q],I2[q])/MM[q]>=.45)continue;
+    const c4=C4[q]=Math.hypot(R4[q],I4[q])/MM[q];if(c4>.12){sr+=R4[q]*c4;si+=I4[q]*c4;}}
+  const ph=Math.atan2(si,sr);   // dominant stroke angle (x4); clutter rarely agrees with it
+  for(let q=0;q<NT;q++)if(C4[q]>.05&&Math.abs(wrap(Math.atan2(I4[q],R4[q])-ph))<.6)ok[q]=C4[q]>.12?2:1;
+  const lab=new Int32Array(NT);let bl=0,bs=0,nl=0;
+  for(let q0=0;q0<NT;q0++){if(ok[q0]!==2||lab[q0])continue;nl++;const st=[q0];lab[q0]=nl;let n=0,nStrong=0;
+    while(st.length){const q=st.pop();n++;if(ok[q]===2)nStrong++;const x=q%tw,y=(q/tw)|0;
+      if(x>0&&ok[q-1]&&!lab[q-1]){lab[q-1]=nl;st.push(q-1);}
+      if(x<tw-1&&ok[q+1]&&!lab[q+1]){lab[q+1]=nl;st.push(q+1);}
+      if(y>0&&ok[q-tw]&&!lab[q-tw]){lab[q-tw]=nl;st.push(q-tw);}
+      if(y<th-1&&ok[q+tw]&&!lab[q+tw]){lab[q+tw]=nl;st.push(q+tw);}}
+    if(n>bs&&nStrong>=10){bs=n;bl=nl;}}
+  if(bs<10)return '';
+  const th0=wrap(ph-Math.PI)/4;
+  const inT=(tx,ty)=>tx>=0&&ty>=0&&tx<tw&&ty<th&&lab[ty*tw+tx]===bl;
+  const inB=(x,y)=>inT((x/T)|0,(y/T)|0)&&x<tw*T&&y<th*T;
+  let tx0=1e9,tx1=-1,ty0=1e9,ty1=-1,scx=0,scy=0;
+  for(let q=0;q<NT;q++)if(lab[q]===bl){const x=q%tw,y=(q/tw)|0;tx0=Math.min(tx0,x);tx1=Math.max(tx1,x);ty0=Math.min(ty0,y);ty1=Math.max(ty1,y);scx+=x;scy+=y;}
+  const cxb=(scx/bs+.5)*T,cyb=(scy/bs+.5)*T;
+
+  // per-channel ink (darker than local mean) inside the block's region: R sees cyan, G magenta, B yellow; geometry = max
+  const rx0=Math.max(0,(tx0-1)*T),ry0=Math.max(0,(ty0-1)*T),rx1=Math.min(W,(tx1+2)*T),ry1=Math.min(H,(ty1+2)*T);
+  const rw=rx1-rx0,rh=ry1-ry0;
+  const kR=pool('kR',Uint8ClampedArray,N),kG=pool('kG',Uint8ClampedArray,N),kB=pool('kB',Uint8ClampedArray,N),ink=pool('ink',Uint8Array,N);
+  inkMap3(px,W,rx0,ry0,rx1,ry1,kR,kG,kB,ink,pool('ring',Uint16Array,26*3*rw),pool('col',Int32Array,3*rw));
+
+  // 2) lattice vectors from a 2D FFT of the block's ink, peaks searched in narrow cones around the stroke axes
+  const span=Math.min((ty1-ty0+1)*T,(tx1-tx0+1)*T);
+  let NF=span>=200?256:128;while(NF>Math.min(W,H))NF>>=1;
+  const fx0=Math.round(Math.min(Math.max(cxb-NF/2,0),W-NF)),fy0=Math.round(Math.min(Math.max(cyb-NF/2,0),H-NF));
+  const re=pool('re',Float64Array,NF*NF).fill(0),im=pool('im',Float64Array,NF*NF).fill(0),hn=new Float64Array(NF);
+  for(let k=0;k<NF;k++)hn[k]=.5-.5*Math.cos(TAU*k/(NF-1));
+  let mu=0,mc=0;
+  for(let y=0;y<NF;y++)for(let x=0;x<NF;x++)if(inB(fx0+x,fy0+y)){mu+=ink[(fy0+y)*W+fx0+x];mc++;}
+  mu/=Math.max(1,mc);
+  for(let y=0;y<NF;y++)for(let x=0;x<NF;x++)if(inB(fx0+x,fy0+y))re[y*NF+x]=(ink[(fy0+y)*W+fx0+x]-mu)*hn[x]*hn[y];
+  for(let y=0;y<NF;y++)fft1(re,im,NF,y*NF,1);
+  for(let x=0;x<NF;x++)fft1(re,im,NF,x,NF);
+  const F=pool('F',Float64Array,NF*NF);for(let i=0;i<NF*NF;i++)F[i]=re[i]*re[i]+im[i]*im[i];
+  const ff=k=>(k<NF/2?k:k-NF)/NF;
+  function peak(a0){let bm=-1,bx=0,by=0;
+    const KM=Math.ceil(NF/4);
+    for(let ky=0;ky<=KM;ky++){const fy=ff(ky);
+      for(let kk=-KM;kk<=KM;kk++){const kx=(kk+NF)%NF,fx=ff(kx),fr=Math.hypot(fx,fy);if(fr<=1/40||fr>=1/4)continue;
+        if(Math.abs(wrap(2*(Math.atan2(fy,fx)-a0)))>=24*Math.PI/180)continue;
+        const m=F[ky*NF+kx];if(m>bm){bm=m;bx=kx;by=ky;}}}
+    const at=(y,x)=>F[((y+NF)%NF)*NF+(x+NF)%NF];
+    // a real fundamental has ~no energy at half its frequency; if f/2 carries a real peak, f was the 2nd harmonic
+    {const hy=Math.round(ff(by)*NF/2),hx=Math.round(ff(bx)*NF/2);let hm=-1,hyy=0,hxx=0;
+     for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++){const m=at(hy+a,hx+b);if(m>hm){hm=m;hyy=hy+a;hxx=hx+b;}}
+     if(hm>.08*bm&&Math.hypot(hxx,hyy)/NF>1/40){bx=(hxx+NF)%NF;by=(hyy+NF)%NF;}}
+    const para=(a,b,c)=>{const d=a-2*b+c;return d===0?0:.5*(a-c)/d;};
+    return [ff(bx)+para(at(by,bx-1),at(by,bx),at(by,bx+1))/NF, ff(by)+para(at(by-1,bx),at(by,bx),at(by+1,bx))/NF];}
+  let p1=peak(th0),p2=peak(th0+Math.PI/2);
+  const eu=[Math.cos(th0),Math.sin(th0)];
+  if(p1[0]*eu[0]+p1[1]*eu[1]<0)p1=[-p1[0],-p1[1]];
+  if(-p2[0]*eu[1]+p2[1]*eu[0]<0)p2=[-p2[0],-p2[1]];
+  const kux=TAU*p1[0],kuy=TAU*p1[1],kvx=TAU*p2[0],kvy=TAU*p2[1];
+
+  // 3) smooth warp: local phase on a 16px grid (48px windows = 3x3 blocks), unwrap best-first, fit cubic correction, twice
+  const BS=16,nbx=Math.floor(rw/BS),nby=Math.floor(rh/BS),GW=nbx-2,GH=nby-2;
+  if(GW<3||GH<3)return '';
+  const gid=new Int32Array(GW*GH).fill(-1),P_x=[],P_y=[],P_g=[],P_in=[];
+  for(let b=0;b<GH;b++)for(let a=0;a<GW;a++){const x=rx0+BS*a+24,y=ry0+BS*b+24;
+    let near=false;
+    for(let ty=Math.floor((y-24)/T);ty<=Math.floor((y+24)/T)&&!near;ty++)for(let tx=Math.floor((x-24)/T);tx<=Math.floor((x+24)/T);tx++)if(inT(tx,ty)){near=true;break;}
+    if(!near)continue;
+    gid[b*GW+a]=P_x.length;P_x.push(x);P_y.push(y);P_g.push(b*GW+a);P_in.push(inB(x,y));}
+  const NP=P_x.length;if(NP<20)return '';
+  const cu=new Float64Array(10),cvv=new Float64Array(10),bv=new Float64Array(10);
+  const Zb=[new Float64Array(nbx*nby),new Float64Array(nbx*nby),new Float64Array(nbx*nby),new Float64Array(nbx*nby)];
+  const ru=new Float64Array(NP),rv=new Float64Array(NP),au=new Float64Array(NP),av=new Float64Array(NP),conf=new Float64Array(NP);
+  const eu_=new Float64Array(NP),ev_=new Float64Array(NP),seen=new Uint8Array(NP),keep=new Uint8Array(NP);
+  const fr=d=>d-Math.round(d);
+  for(let it=0;it<2;it++){
+    // demodulate ink by the current model phase into 16x16 block sums; exact phase every 8px, complex rotation in between
+    for(const z of Zb)z.fill(0);
+    const KN=8,yE=ry0+nby*BS,xE=rx0+nbx*BS;
+    for(let y=ry0;y<yE;y+=2){const yn=(y-H/2)/W,pu=polyRow(cu,yn),pv=polyRow(cvv,yn),zo=((y-ry0)/BS|0)*nbx;
+      const phU=x=>{const xn=(x-W/2)/W;return kux*x+kuy*y+TAU*(pu[0]+xn*(pu[1]+xn*(pu[2]+xn*pu[3])));};
+      const phV=x=>{const xn=(x-W/2)/W;return kvx*x+kvy*y+TAU*(pv[0]+xn*(pv[1]+xn*(pv[2]+xn*pv[3])));};
+      for(let xk=rx0;xk<xE;xk+=KN){
+        const a0=phU(xk),b0=phV(xk),da=(phU(xk+KN)-a0)/KN,db=(phV(xk+KN)-b0)/KN;
+        let ur=Math.cos(a0),ui=-Math.sin(a0),vr=Math.cos(b0),vi=-Math.sin(b0);
+        const sur=Math.cos(da),sui=-Math.sin(da),svr=Math.cos(db),svi=-Math.sin(db);
+        let s0=0,s1=0,s2=0,s3=0;
+        for(let x=xk,o=y*W+xk;x<xk+KN;x++,o++){const w=ink[o];
+          if(w){s0+=w*ur;s1+=w*ui;s2+=w*vr;s3+=w*vi;}
+          let t=ur*sur-ui*sui;ui=ur*sui+ui*sur;ur=t;t=vr*svr-vi*svi;vi=vr*svi+vi*svr;vr=t;}
+        const zb=zo+((xk-rx0)/BS|0);Zb[0][zb]+=s0;Zb[1][zb]+=s1;Zb[2][zb]+=s2;Zb[3][zb]+=s3;}}
+    for(let p=0;p<NP;p++){const g0=P_g[p],a=g0%GW,b=(g0/GW)|0;let zr=0,zi=0,vr=0,vi=0;
+      for(let dy=0;dy<3;dy++)for(let dx=0;dx<3;dx++){const q=(b+dy)*nbx+a+dx;zr+=Zb[0][q];zi+=Zb[1][q];vr+=Zb[2][q];vi+=Zb[3][q];}
+      ru[p]=Math.atan2(zi,zr)/TAU;rv[p]=Math.atan2(vi,vr)/TAU;au[p]=Math.hypot(zr,zi);av[p]=Math.hypot(vr,vi);conf[p]=Math.min(au[p],av[p]);}
+    if(it===0){const inside=[];for(let p=0;p<NP;p++)if(P_in[p])inside.push(conf[p]);const thr=.25*median(inside);
+      for(let p=0;p<NP;p++)keep[p]=conf[p]>thr?1:0;}
+    // best-first unwrap (binary heap on confidence)
+    seen.fill(0);
+    let s0=-1;for(let p=0;p<NP;p++)if(keep[p]&&(s0<0||conf[p]>conf[s0]))s0=p;
+    if(s0<0)return '';
+    const heap=[s0];seen[s0]=1;eu_[s0]=ru[s0];ev_[s0]=rv[s0];
+    const hpush=p=>{heap.push(p);let i=heap.length-1;while(i>0){const j=(i-1)>>1;if(conf[heap[j]]>=conf[heap[i]])break;const t=heap[i];heap[i]=heap[j];heap[j]=t;i=j;}};
+    const hpop=()=>{const top=heap[0],last=heap.pop();if(heap.length){heap[0]=last;let i=0;for(;;){const l=2*i+1,r=l+1;let m=i;
+      if(l<heap.length&&conf[heap[l]]>conf[heap[m]])m=l;if(r<heap.length&&conf[heap[r]]>conf[heap[m]])m=r;if(m===i)break;const t=heap[i];heap[i]=heap[m];heap[m]=t;i=m;}}return top;};
+    while(heap.length){const a=hpop(),g0=P_g[a],ax=g0%GW,ay=(g0/GW)|0;
+      for(let d=0;d<4;d++){const bx=ax+(d===0?1:d===1?-1:0),by=ay+(d===2?1:d===3?-1:0);if(bx<0||by<0||bx>=GW||by>=GH)continue;
+        const b=gid[by*GW+bx];if(b<0||seen[b]||!keep[b])continue;seen[b]=1;
+        eu_[b]=eu_[a]+fr(ru[b]-eu_[a]);ev_[b]=ev_[a]+fr(rv[b]-ev_[a]);hpush(b);}}
+    // weighted least squares for the cubic correction; refit once without samples that disagree (clutter, glare, edges)
+    let du=null,dv=null;
+    for(let pass=0;pass<2;pass++){
+      const Au=new Float64Array(100),Av=new Float64Array(100),bu=new Float64Array(10),bvv=new Float64Array(10);
+      for(let p=0;p<NP;p++){if(!seen[p])continue;basis((P_x[p]-W/2)/W,(P_y[p]-H/2)/W,bv);
+        for(let r=0;r<10;r++){const fu=au[p]*bv[r],fv=av[p]*bv[r];bu[r]+=fu*eu_[p];bvv[r]+=fv*ev_[p];
+          for(let c=0;c<10;c++){Au[r*10+c]+=fu*bv[c];Av[r*10+c]+=fv*bv[c];}}}
+      du=solve(Au,bu,10);dv=solve(Av,bvv,10);if(!du||!dv)return '';
+      if(pass)break;
+      let drop=0,tot=0;
+      for(let p=0;p<NP;p++){if(!seen[p])continue;basis((P_x[p]-W/2)/W,(P_y[p]-H/2)/W,bv);tot++;
+        let a=eu_[p],b=ev_[p];for(let r=0;r<10;r++){a-=du[r]*bv[r];b-=dv[r]*bv[r];}
+        if(Math.abs(a)>.2||Math.abs(b)>.2){seen[p]=0;keep[p]=0;drop++;}}
+      if(!drop||drop>.5*tot)break;}
+    for(let r=0;r<10;r++){cu[r]+=du[r];cvv[r]+=dv[r];}
+  }
+
+  // 4) forward-map every pixel to its cell; ink on the / diagonal minus ink on the \ diagonal decides the bit
+  const mapF=(x,y)=>{const xn=(x-W/2)/W,yn=(y-H/2)/W,ru=polyRow(cu,yn),rv=polyRow(cvv,yn);
+    return [(kux*x+kuy*y)/TAU+ru[0]+xn*(ru[1]+xn*(ru[2]+xn*ru[3])),(kvx*x+kvy*y)/TAU+rv[0]+xn*(rv[1]+xn*(rv[2]+xn*rv[3]))];};
+  let imin=1e9,imax=-1e9,jmin=1e9,jmax=-1e9;
+  const edge=(x,y)=>{const [a,b]=mapF(x,y);imin=Math.min(imin,Math.floor(a));imax=Math.max(imax,Math.ceil(a));jmin=Math.min(jmin,Math.floor(b));jmax=Math.max(jmax,Math.ceil(b));};
+  for(let x=rx0;x<=rx1;x+=8){edge(x,ry0);edge(x,ry1);}for(let y=ry0;y<=ry1;y+=8){edge(rx0,y);edge(rx1,y);}
+  const nI=imax-imin+1,nJ=jmax-jmin+1,NC=nI*nJ;if(NC>400000||nI<8||nJ<2)return '';
+  const SR=new Float64Array(NC),SG=new Float64Array(NC),SB=new Float64Array(NC),PT=new Float64Array(NC),PP=new Float64Array(NC),NN=new Float64Array(NC);
+  for(let y=ry0;y<ry1;y++){const yn=(y-H/2)/W,ru=polyRow(cu,yn),rv=polyRow(cvv,yn);
+    for(let x=rx0;x<rx1;x++){const q0=y*W+x;if(!ink[q0])continue;
+      const xn=(x-W/2)/W,a=(kux*x+kuy*y)/TAU+ru[0]+xn*(ru[1]+xn*(ru[2]+xn*ru[3])),b=(kvx*x+kvy*y)/TAU+rv[0]+xn*(rv[1]+xn*(rv[2]+xn*rv[3]));
+      const ia=Math.round(a),jb=Math.round(b),du=a-ia,dv=b-jb;if(ia<imin||ia>imax||jb<jmin||jb>jmax)continue;
+      const adu=Math.abs(du),adv=Math.abs(dv);
+      if(adu>=.44||adv>=.44||(adu<=.1&&adv<=.1))continue;
+      const ws=Math.max(0,1-Math.abs(du+dv)/.22),wb=Math.max(0,1-Math.abs(du-dv)/.22);if(!ws&&!wb)continue;
+      const c=(jb-jmin)*nI+ia-imin,q=y*W+x,d=ws-wb,t=ws+wb,r=kR[q],gg=kG[q],bb=kB[q];
+      SR[c]+=r*d;SG[c]+=gg*d;SB[c]+=bb*d;PT[c]+=(r+gg+bb)*t;PP[c]+=ink[q]*t;}}
+  // pixel coverage per cell (incl. blank paper) on a 2x subsample: tells real cells from cells outside the frame
+  for(let y=ry0;y<ry1;y+=2){const yn=(y-H/2)/W,ru=polyRow(cu,yn),rv=polyRow(cvv,yn);
+    for(let x=rx0;x<rx1;x+=2){const xn=(x-W/2)/W,ia=Math.round((kux*x+kuy*y)/TAU+ru[0]+xn*(ru[1]+xn*(ru[2]+xn*ru[3]))),jb=Math.round((kvx*x+kvy*y)/TAU+rv[0]+xn*(rv[1]+xn*(rv[2]+xn*rv[3])));
+      if(ia>=imin&&ia<=imax&&jb>=jmin&&jb<=jmax)NN[(jb-jmin)*nI+ia-imin]++;}}
+
+  // 5) block extent from per-cell evidence
+  const mp=[],mn=[];for(let c=0;c<nI*nJ;c++){if(PP[c]>0)mp.push(PP[c]);if(NN[c]>0)mn.push(NN[c]);}
+  const medP=median(mp),medN=median(mn);
+  const V=new Uint8Array(NC);for(let c=0;c<NC;c++)V[c]=PP[c]>.25*medP&&Math.abs(SR[c])+Math.abs(SG[c])+Math.abs(SB[c])>.12*PT[c]&&NN[c]>.5*medN?1:0;
+  function run(n,f){let bl2=0,bb=-1,s=-1;for(let k=0;k<=n;k++){const on=k<n&&f(k);if(on&&s<0)s=k;if(!on&&s>=0){if(k-s>bl2){bl2=k-s;bb=s;}s=-1;}}return [bb,bb+bl2-1];}
+  // rows/cols count as block if they hold at least half the valid cells of a typical block row/col
+  const rf=new Float64Array(nJ);for(let j=0;j<nJ;j++){let c=0;for(let i=0;i<nI;i++)c+=V[j*nI+i];rf[j]=c;}
+  const rq=Float64Array.from(rf).sort()[Math.floor(.9*(nJ-1))];
+  const [jT,jB]=run(nJ,j=>rf[j]>.5*rq);
+  if(jT<0)return '';
+  const cf=new Float64Array(nI);for(let i=0;i<nI;i++){let c=0;for(let j=jT;j<=jB;j++)c+=V[j*nI+i];cf[i]=c;}
+  const cq=Float64Array.from(cf).sort()[Math.floor(.9*(nI-1))];
+  const [iL,iR]=run(nI,i=>cf[i]>.5*cq);
+  if(iL<0||iR-iL<7)return '';
+  const real=i=>{if(i<0||i>=nI)return false;const a=[];for(let j=jT;j<=jB;j++)a.push(NN[j*nI+i]);return median(a)>.7*medN;};
+  const full=real(iL-1)&&real(iR+1);
+
+  // 5b) layers. One ink (all channels move together) -> one layer. Otherwise unmix R,G,B differences into C,M,Y:
+  //     model d = A.s with s in {+-1}^3; estimate A from the cells themselves (sign/least-squares iterations from identity)
+  const cells=[];for(let j=jT;j<=jB;j++)for(let i=iL;i<=iR;i++)cells.push(j*nI+i);
+  const n=cells.length,D=new Float64Array(3*n);
+  for(let k=0;k<n;k++){const c=cells[k];D[3*k]=SR[c];D[3*k+1]=SG[c];D[3*k+2]=SB[c];}
+  let agree=0;for(let k=0;k<n;k++){const a=D[3*k]>0,b=D[3*k+1]>0,c=D[3*k+2]>0;if(a===b&&b===c)agree++;}
+  const mono=agree>.9*n;   // one ink: every channel sees the same stroke direction in (nearly) every cell
+  const nL=mono?1:3,bits=[];
+  const soft=[];   // signed confidence per cell and layer (>0 means '/')
+  if(mono){const b=new Uint8Array(n),u=new Float32Array(n);for(let k=0;k<n;k++){u[k]=D[3*k]+D[3*k+1]+D[3*k+2];b[k]=u[k]>0?1:0;}bits.push(b);soft.push(u);}
+  else{
+    const inv3=m=>{const [a,b,c,d,e,f,g2,h,i]=m,A=e*i-f*h,B=-(d*i-f*g2),C=d*h-e*g2,det=a*A+b*B+c*C;if(Math.abs(det)<1e-12)return null;
+      return [A/det,-(b*i-c*h)/det,(b*f-c*e)/det,B/det,(a*i-c*g2)/det,-(a*f-c*d)/det,C/det,-(a*h-b*g2)/det,(a*e-b*d)/det];};
+    let Am=[0,0,0,0,0,0,0,0,0];for(let ch=0;ch<3;ch++){let s2=0;for(let k=0;k<n;k++)s2+=Math.abs(D[3*k+ch]);Am[ch*4]=s2/n;}
+    const sg=new Int8Array(3*n);
+    for(let it=0;it<5;it++){const Ai=inv3(Am);if(!Ai)break;
+      for(let k=0;k<n;k++)for(let l=0;l<3;l++){const u=Ai[3*l]*D[3*k]+Ai[3*l+1]*D[3*k+1]+Ai[3*l+2]*D[3*k+2];sg[3*k+l]=u>=0?1:-1;}
+      // least squares D ~ A.s  ->  A = (D^T S)(S^T S)^-1
+      const SS=[0,0,0,0,0,0,0,0,0],DS=[0,0,0,0,0,0,0,0,0];
+      for(let k=0;k<n;k++)for(let a=0;a<3;a++){for(let b=0;b<3;b++){SS[3*a+b]+=sg[3*k+a]*sg[3*k+b];DS[3*a+b]+=D[3*k+a]*sg[3*k+b];}}
+      const Si=inv3(SS);if(!Si)break;
+      const An=[0,0,0,0,0,0,0,0,0];for(let a=0;a<3;a++)for(let b=0;b<3;b++)for(let c=0;c<3;c++)An[3*a+b]+=DS[3*a+c]*Si[3*c+b];
+      Am=An;}
+    for(let l=0;l<3;l++){const b=new Uint8Array(n);for(let k=0;k<n;k++)b[k]=sg[3*k+l]>0?1:0;bits.push(b);}
+    const Ai=inv3(Am);
+    for(let l=0;l<3;l++){const u=new Float32Array(n);
+      for(let k=0;k<n;k++)u[k]=Ai?Ai[3*l]*D[3*k]+Ai[3*l+1]*D[3*k+1]+Ai[3*l+2]*D[3*k+2]:sg[3*k+l];soft.push(u);}
+  }
+  const RW=iR-iL+1,layers=bits.map(b=>{const m=[];for(let r=0;r*RW<b.length;r++)m.push(b.subarray(r*RW,(r+1)*RW));return m;});
+  // remember a processing scale that puts ~11px on a cell (saves time on coarse prints)
+  {const pmin=Math.min(1/Math.hypot(p1[0],p1[1]),1/Math.hypot(p2[0],p2[1])),want=Math.min(cap,sc*11/pmin);
+   if(!SCALE||Math.abs(want-SCALE)/SCALE>.15)SCALE=want;}
+
+  if(SCANNING){const valid=new Uint8Array(n);for(let k=0;k<n;k++)valid[k]=V[cells[k]];
+    return scanStep({L:nL,h:jB-jT+1,w:RW,soft,valid});}
+
+  // 6) orientation is unknown up to rotation/mirror and bytes have no sync: try all, keep the most text-like
+  const rot=m=>{const R=m.length,C=m[0].length,o=[];for(let j=0;j<C;j++){const r=new Uint8Array(R);for(let i=0;i<R;i++)r[R-1-i]=m[i][j]^1;o.push(r);}return o;};
+  const mir=m=>m.map(r=>{const C=r.length,o=new Uint8Array(C);for(let i=0;i<C;i++)o[C-1-i]=r[i]^1;return o;});
+  const PR=new Uint8Array(256);for(let B=32;B<127;B++)PR[B]=1;PR[9]=PR[10]=PR[13]=1;
+  const toBytes=(bits,o,n0=0,n1=bits.length)=>{const a=new Uint8Array(Math.max(0,Math.floor((n1-n0-o)/8)));
+    for(let q=n0+o,k=0;k<a.length;q+=8,k++){let B=0;for(let z=0;z<8;z++)B=(B<<1)|bits[q+z];a[k]=B;}return a;};
+  const score=by=>{let k=0;for(let i=0;i<by.length;i++)k+=PR[by[i]];return by.length?k/by.length:0;};
+  const dec=b=>new TextDecoder('utf-8').decode(b);
+  let best={sc:-1,make:()=>''},cur=layers;
+  for(let r=0;r<4;r++){
+    for(const XL of [cur,cur.map(mir)]){
+      if(full){
+        const per=XL[0].length*XL[0][0].length,all=new Uint8Array(per*XL.length);let p=0;
+        for(const X of XL)for(const row of X){all.set(row,p);p+=row.length;}
+        // one continuous C|M|Y bit stream (exact when every row is in view)
+        for(let o=0;o<8;o++){const by=toBytes(all,o),sc2=score(by);if(sc2>best.sc)best={sc:sc2,make:()=>dec(by)};}
+        // fallback if rows are missing at the top/bottom: align each layer's bytes on its own
+        if(XL.length>1){let k=0,tot=0;const parts=[];
+          for(let l=0;l<XL.length;l++){let bb=null,bq=-1;
+            for(let o=0;o<8;o++){const by=toBytes(all,o,l*per,(l+1)*per),q=score(by);if(q>bq){bq=q;bb=by;}}
+            k+=bq*bb.length;tot+=bb.length;parts.push(bb);}
+          if(k/tot>best.sc+.003)best={sc:k/tot,make:()=>parts.map(dec).join('')};}}
+      else{let k=0,tot=0;const lines=[];
+        for(const X of XL){if(lines.length)lines.push(null);for(const row of X){let bb=null,bq=-1;
+          for(let o=0;o<8;o++){const by=toBytes(row,o);if(by.length<2)continue;const q=score(by);if(q>bq){bq=q;bb=by;}}
+          if(bb){k+=bq*bb.length;tot+=bb.length;lines.push(bb);}}}
+        if(tot&&k/tot>best.sc)best={sc:k/tot,make:()=>lines.map(b=>b?dec(b):'').join('\n')};}
+    }
+    cur=cur.map(rot);
+  }
+  best.t=best.make();
+  return best.t.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g,'·');
+}
+/* ---------- cumulative scan: register each frame's cells onto a growing sheet map, vote, decode the union ---------- */
+const GS=1024;let SG=null;   // sheet map: GS x GS cells
+function scanReset(){SG=null;}
+function tfRot(F){ // rotate a frame's cell patch 90deg clockwise; '/' becomes '\' so values flip sign
+  const {h,w,L}=F,soft=F.soft.map(()=>new Float32Array(h*w)),valid=new Uint8Array(h*w);
+  for(let i=0;i<h;i++)for(let j=0;j<w;j++){const a=i*w+j,b=j*h+(h-1-i);valid[b]=F.valid[a];for(let l=0;l<L;l++)soft[l][b]=-F.soft[l][a];}
+  return {L,h:w,w:h,soft,valid};}
+function scanStep(F){
+  // normalise confidences per layer so frames vote with comparable weight
+  for(let l=0;l<F.L;l++){const a=[];for(let k=0;k<F.h*F.w;k++)if(F.valid[k])a.push(Math.abs(F.soft[l][k]));const m=median(a)||1;
+    for(let k=0;k<F.h*F.w;k++){let x=F.soft[l][k]/m;F.soft[l][k]=x>3?3:x<-3?-3:x;}}
+  if(SG&&SG.L!==F.L){stEl.textContent='ink layers changed - Reset to start over';return SG.text;}
+  if(!SG){SG={L:F.L,acc:Array.from({length:F.L},()=>new Float32Array(GS*GS)),cnt:new Uint16Array(GS*GS),
+    y0:1e9,y1:-1,x0:1e9,x1:-1,last:null,frames:0,lost:0,text:''};
+    scanAdd(F,0,(GS-F.h)>>1,(GS-F.w)>>1);}
+  else{const r=scanFind(F);
+    if(!r){SG.lost++;stEl.textContent='lost - go back over a scanned area';return SG.text;}
+    scanAdd(r.F,r.t,r.dy,r.dx);}
+  SG.text=scanDecode();return SG.text;}
+function scanAdd(F,t,dy,dx){
+  for(let i=0;i<F.h;i++)for(let j=0;j<F.w;j++){const k=i*F.w+j;if(!F.valid[k])continue;const g=(i+dy)*GS+j+dx;
+    if(i+dy<0||j+dx<0||i+dy>=GS||j+dx>=GS)continue;
+    for(let l=0;l<F.L;l++)SG.acc[l][g]+=F.soft[l][k];if(SG.cnt[g]<65535)SG.cnt[g]++;
+    if(i+dy<SG.y0)SG.y0=i+dy;if(i+dy>SG.y1)SG.y1=i+dy;if(j+dx<SG.x0)SG.x0=j+dx;if(j+dx>SG.x1)SG.x1=j+dx;}
+  SG.last={t,dy,dx,h:F.h,w:F.w};SG.frames++;drawMap(SG.last);}
+function scanFind(F0){
+  // candidate orientations: the camera may turn past 45deg between frames (never mirrors)
+  const Fs=[F0];for(let r=1;r<4;r++)Fs.push(tfRot(Fs[r-1]));
+  const samp=F=>{const idx=[];for(let k=0;k<F.h*F.w;k++)if(F.valid[k])idx.push(k);
+    for(let k=idx.length-1;k>0;k--){const q=(Math.random()*(k+1))|0,t=idx[k];idx[k]=idx[q];idx[q]=t;}return idx;};
+  const S=Fs.map(samp);
+  // agreement of a frame placement with the map, over cells the map already knows
+  const score=(t,dy,dx,lim,maxBad)=>{const F=Fs[t],ix=S[t];let ok=0,n=0,bad=0;
+    for(let q=0;q<ix.length&&n<lim;q++){const k=ix[q],i=(k/F.w)|0,j=k-i*F.w,y=i+dy,x=j+dx;
+      if(y<0||x<0||y>=GS||x>=GS)continue;const g=y*GS+x;if(!SG.cnt[g])continue;
+      for(let l=0;l<F.L;l++){const a=SG.acc[l][g];if(a===0)continue;n++;if((a>0)===(F.soft[l][k]>0))ok++;else if(++bad>maxBad)return [0,n];}}
+    return [n?ok/n:0,n];};
+  const accept=(t,dy,dx)=>{const [a,n]=score(t,dy,dx,900,1e9);return a>=.85&&n>=60*SG.L?{t,dy,dx,F:Fs[t],a,n}:null;};
+  let best=null;
+  // 1) near the previous placement (slow hand motion)
+  if(SG.last){const L0=SG.last;
+    for(const t of [L0.t,(L0.t+1)&3,(L0.t+3)&3]){const F=Fs[t];
+      const cy=L0.dy+((L0.h-F.h)>>1),cx=L0.dx+((L0.w-F.w)>>1);
+      for(let dy=-25;dy<=25;dy++)for(let dx=-25;dx<=25;dx++){const [a,n]=score(t,cy+dy,cx+dx,60*SG.L,12*SG.L);
+        if(n>=20*SG.L&&a>.8&&(!best||a>best.a||(a===best.a&&n>best.n)))best={t,dy:cy+dy,dx:cx+dx,a,n};}
+      if(best&&best.a>.9)break;}
+    if(best){const r=accept(best.t,best.dy,best.dx);if(r)return r;}}
+  // 2) anywhere on the map that could overlap
+  best=null;const cand=[];
+  for(let t=0;t<4;t++){const F=Fs[t];
+    for(let dy=SG.y0-F.h+8;dy<=SG.y1-8;dy++)for(let dx=SG.x0-F.w+8;dx<=SG.x1-8;dx++){const [a,n]=score(t,dy,dx,24*SG.L,4*SG.L);
+      if(n>=12*SG.L&&a>.8)cand.push({t,dy,dx,a});}}
+  cand.sort((p,q)=>q.a-p.a);
+  for(const c of cand.slice(0,12)){const r=accept(c.t,c.dy,c.dx);if(r&&(!best||r.a>best.a))best=r;}
+  return best;}
+function scanDecode(){
+  // trim edge rows/cols whose votes disagree with each other (background next to the sheet), then read the rest
+  const {L}=SG;let y0=SG.y0,y1=SG.y1,x0=SG.x0,x1=SG.x1;
+  const cons=(ya,yb,xa,xb)=>{let s=0,n=0;for(let y=ya;y<=yb;y++)for(let x=xa;x<=xb;x++){const g=y*GS+x,c=SG.cnt[g];if(!c)continue;
+    let a=0;for(let l=0;l<L;l++)a+=Math.abs(SG.acc[l][g]);s+=a/(L*c);n++;}return n?s/n:0;};
+  for(let guard=0;guard<64&&y1-y0>2&&x1-x0>8;guard++){
+    if(cons(y0,y0,x0,x1)<.4)y0++;else if(cons(y1,y1,x0,x1)<.4)y1--;else if(cons(y0,y1,x0,x0)<.4)x0++;else if(cons(y0,y1,x1,x1)<.4)x1--;else break;}
+  const h=y1-y0+1,w=x1-x0+1;let have=0;
+  const lay=[];for(let l=0;l<L;l++){const m=new Int8Array(h*w);   // +1 '/', -1 '\', 0 unknown
+    for(let i=0;i<h;i++)for(let j=0;j<w;j++){const g=(i+y0)*GS+j+x0,a=SG.acc[l][g];m[i*w+j]=SG.cnt[g]?(a>0?1:a<0?-1:0):0;if(l===0&&SG.cnt[g])have++;}
+    lay.push({h,w,m});}
+  stEl.textContent=`${w}×${h} cells · ${Math.round(100*have/(h*w))}% seen · ${SG.frames} frames`+(SG.lost?` · ${SG.lost} skipped`:'');
+  const rot=X=>{const o=new Int8Array(X.h*X.w);for(let i=0;i<X.h;i++)for(let j=0;j<X.w;j++)o[j*X.h+(X.h-1-i)]=-X.m[i*X.w+j];return {h:X.w,w:X.h,m:o};};
+  const mir=X=>{const o=new Int8Array(X.h*X.w);for(let i=0;i<X.h;i++)for(let j=0;j<X.w;j++)o[i*X.w+(X.w-1-j)]=-X.m[i*X.w+j];return {h:X.h,w:X.w,m:o};};
+  const PR=new Uint8Array(256);for(let B=32;B<127;B++)PR[B]=1;PR[9]=PR[10]=PR[13]=1;
+  // bytes from a +-1/0 stream: -1 marks a byte with any unseen bit
+  const toBytes=(s,o,n0,n1)=>{const a=new Int16Array(Math.max(0,Math.floor((n1-n0-o)/8)));
+    for(let q=n0+o,k=0;k<a.length;q+=8,k++){let B=0,u=0;for(let z=0;z<8;z++){const b=s[q+z];if(!b)u=1;B=(B<<1)|(b>0?1:0);}a[k]=u?-1:B;}return a;};
+  const score=by=>{let k=0,n=0;for(let i=0;i<by.length;i++)if(by[i]>=0){n++;k+=PR[by[i]];}return n?k/n:0;};
+  const dec=by=>{let outS='',run=[];const flush=()=>{if(run.length){outS+=new TextDecoder('utf-8').decode(new Uint8Array(run));run=[];}};
+    for(let i=0;i<by.length;i++){if(by[i]<0){flush();outS+='░';}else run.push(by[i]);}flush();return outS;};
+  let best={sc:-1,make:()=>''},cur=lay;
+  for(let r=0;r<4;r++){
+    for(const XL of [cur,cur.map(mir)]){const per=XL[0].h*XL[0].w,all=new Int8Array(per*L);XL.forEach((X,l)=>all.set(X.m,l*per));
+      for(let o=0;o<8;o++){const by=toBytes(all,o,0,all.length),sc=score(by);if(sc>best.sc)best={sc,make:()=>dec(by)};}
+      if(L>1){let k=0,tot=0;const parts=[];
+        for(let l=0;l<L;l++){let bb=null,bq=-1;for(let o=0;o<8;o++){const by=toBytes(all,o,l*per,(l+1)*per),q=score(by);if(q>bq){bq=q;bb=by;}}
+          k+=bq*bb.length;tot+=bb.length;parts.push(bb);}
+        if(k/tot>best.sc+.003)best={sc:k/tot,make:()=>parts.map(dec).join('')};}}
+    cur=cur.map(rot);}
+  return best.make().replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g,'·');}
+function drawMap(last){
+  if(!SG){mapC.width=mapC.height=1;return;}
+  const {y0,y1,x0,x1}=SG,h=y1-y0+1,w=x1-x0+1,k=Math.max(1,Math.floor(160/Math.max(h,w)));
+  mapC.width=w*k;mapC.height=h*k;const c=mapC.getContext('2d'),im=c.createImageData(w,h);
+  for(let i=0;i<h;i++)for(let j=0;j<w;j++){const n=SG.cnt[(i+y0)*GS+j+x0],q=4*(i*w+j),b=n?Math.min(255,110+40*n):25;im.data[q]=im.data[q+1]=im.data[q+2]=b;im.data[q+3]=255;}
+  const t=document.createElement('canvas');t.width=w;t.height=h;t.getContext('2d').putImageData(im,0,0);
+  c.imageSmoothingEnabled=false;c.drawImage(t,0,0,w*k,h*k);
+  if(last){c.strokeStyle='#f0f';c.lineWidth=2;c.strokeRect((last.dx-x0)*k,(last.dy-y0)*k,last.w*k,last.h*k);}}
+start();
+</script>
+</body></html>
+
+</body></html>
