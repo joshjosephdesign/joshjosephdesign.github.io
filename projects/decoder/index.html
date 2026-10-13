@@ -674,7 +674,7 @@ function setMode(scan){
   bScan.setAttribute('aria-pressed',scan);bSpot.setAttribute('aria-pressed',!scan);paintKey='';shown=null;
   document.getElementById('app').classList.toggle('scanning',scan);ghost.className='';}
 bScan.onclick=()=>setMode(true);
-function doReset(){gen++;MAP=null;mapKey='';if(WK)WK.postMessage({type:'reset'});scanReset();out.textContent='';stEl.textContent='sweep the camera over the sheet';drawMap(null);
+function doReset(){gen++;MAP=null;mapKey='';mapQ=[];if(WK)WK.postMessage({type:'reset'});scanReset();out.textContent='';stEl.textContent='sweep the camera over the sheet';drawMap(null);
   MISS=0;lastT=0;paintKey='';shown=null;try{paint();feedback();}catch(e){}}
 document.getElementById('rstB').onclick=doReset;
 document.getElementById('rst').addEventListener('click',()=>{MISS=0;paintKey='';shown=null;});
@@ -692,68 +692,81 @@ function cellLayer(h,w,tone){const c=offs[offI^=1];if(c.width!==w||c.height!==h)
   const x=c.getContext('2d');if(!imgCache||imgCache.width!==w||imgCache.height!==h)imgCache=x.createImageData(w,h);
   const d=imgCache.data;for(let i=0,q=0;i<h;i++)for(let j=0;j<w;j++,q+=4){const b=tone(i,j);d[q]=d[q+1]=d[q+2]=b;d[q+3]=255;}
   x.putImageData(imgCache,0,0);return c;}
-let curL=null,prevL=null,fadeT=0,view=null,liveV=null,lastTick=performance.now(),MAP=null,mapKey='';
-// decoding runs in a background worker built from this same script, so drawing never waits for a frame to decode.
-// The page grabs a frame at the worker's chosen scale, hands the pixels over, and draws whatever the worker sends back.
+let curL=null,MAP=null,mapKey='';
+// Decoding runs in background workers built from this same script. Several "reader" workers decode camera frames in
+// parallel (each frame is independent), so frames are captured several times faster than one decoder could manage;
+// one "map" worker stitches the decoded frames onto the sheet map in arrival order. The page only grabs frames and draws.
 const ENGINE=document.currentScript?document.currentScript.textContent.split('/* ---------- main interface ---------- */')[0]:'';
 const capC=document.createElement('canvas'),capX=capC.getContext('2d',{willReadFrequently:true});
-let busy=false,wScale=0,gen=0;
+const decs=[];let mapW=null,mapBusy=false,mapQ=[],gen=0,wScale=0,mapL=0,lastCap=0;
 try{
   if(!ENGINE||!window.Worker)throw 0;
-  const shim=`const FRAME={};const CTX={drawImage(){},getImageData(){return {data:FRAME.px};},createImageData(w,h){return {data:new Uint8ClampedArray(w*h*4)};},putImageData(){},strokeRect(){},fillRect(){}};
+  const shim=`const FRAME={};let HINTL=0,CAPT=null,ROLE='',lastSnap='',lastSpot=0;
+const CTX={drawImage(){},getImageData(){return {data:FRAME.px};},createImageData(w,h){return {data:new Uint8ClampedArray(w*h*4)};},putImageData(){},strokeRect(){},fillRect(){}};
 const fakeEl=()=>({textContent:'',value:'',innerHTML:'',style:{},setAttribute(){},addEventListener(){},appendChild(){},classList:{toggle(){},add(){},contains(){return false;}},getContext(){return CTX;}});
 self.document={getElementById:fakeEl,createElement:fakeEl,body:fakeEl()};`;
   const eng=ENGINE.replace("const v=document.getElementById('v')","const v={videoWidth:0,videoHeight:0}")
     .replace("const sc=SCALE?Math.min(cap,SCALE):cap,W=Math.round(vw*sc),H=Math.round(vh*sc),N=W*H;","const sc=FRAME.sc,W=FRAME.W,H=FRAME.H,N=W*H;")
+    .replace("SCANNING&&SG&&SG.L===3&&agree","SCANNING&&(SG?SG.L:HINTL)===3&&agree")
     .replace("  setTimeout(loop,8);","");
-  const tail=`let lastSnap='',lastSpot=0;
+  const tail=`const realStep=scanStep;
 onmessage=e=>{const m=e.data;
-  if(m.type==='reset'){scanReset();out.textContent='';MISS=0;lastSnap='';return;}
-  Object.assign(FRAME,m);FRAME.px=new Uint8ClampedArray(m.buf);v.videoWidth=m.vw;v.videoHeight=m.vh;
+  if(m.type==='init'){ROLE=m.role;if(ROLE==='reader')scanStep=function(F){SCANF++;CAPT=F;return '';};return;}
+  if(ROLE==='map'){
+    if(m.type==='reset'){scanReset();out.textContent='';lastSnap='';return;}
+    SCANNING=true;try{realStep(m.F);scanFlush(false);}catch(err){}
+    const r={gen:m.gen,t:SG?SG.text:'',L:SG?SG.L:0},tr=[];
+    const k=SG?SG.frames+'|'+SG.y0+','+SG.x0+','+SG.y1+','+SG.x1:'none';
+    if(k!==lastSnap){lastSnap=k;r.map=mapSnapshot();if(r.map)tr.push(r.map.c.buffer);}
+    postMessage(r,tr);return;}
+  // reader: decode one frame
+  Object.assign(FRAME,m);FRAME.px=new Uint8ClampedArray(m.buf);v.videoWidth=m.vw;v.videoHeight=m.vh;HINTL=m.hintL;
   if(m.scanning!==SCANNING){SCANNING=m.scanning;out.textContent='';}
-  loop();
-  const r={type:'done',gen:m.gen,t:out.textContent,scale:SCALE,buf:m.buf};const tr=[m.buf];
-  const k=SG?SG.frames+'|'+SG.y0+','+SG.x0+','+SG.y1+','+SG.x1:'none';
-  if(k!==lastSnap){lastSnap=k;r.map=mapSnapshot();if(r.map)tr.push(r.map.c.buffer);}
-  if(!SCANNING&&SPOT&&SPOT.t!==lastSpot){lastSpot=SPOT.t;r.spot=SPOT;}
+  CAPT=null;loop();
+  const r={gen:m.gen,scale:SCALE,buf:m.buf},tr=[m.buf];
+  if(CAPT){r.F=CAPT;for(const a of CAPT.soft)tr.push(a.buffer);tr.push(CAPT.valid.buffer);}
+  if(!SCANNING){r.t=out.textContent;if(SPOT&&SPOT.t!==lastSpot){lastSpot=SPOT.t;r.spot=SPOT;}}
   postMessage(r,tr);};`;
-  if(!eng.includes('FRAME.sc'))throw 0;
-  WK=new Worker(URL.createObjectURL(new Blob([shim,eng,tail],{type:'text/javascript'})));
-  WK.onmessage=e=>{const m=e.data;busy=false;if(m.gen!==gen)return;
-    wScale=m.scale;out.textContent=m.t;if('map' in m)MAP=m.map;if(m.spot)SPOT=m.spot;pump();};
-  WK.onerror=()=>{WK=null;busy=false;};   // fall back on decoding in the page
+  if(!eng.includes('FRAME.sc')||!eng.includes('HINTL'))throw 0;
+  const url=URL.createObjectURL(new Blob([shim,eng,tail],{type:'text/javascript'}));
+  mapW=new Worker(url);mapW.postMessage({type:'init',role:'map'});
+  mapW.onmessage=e=>{const m=e.data;mapBusy=false;if(m.gen===gen){out.textContent=m.t;mapL=m.L;if('map' in m)MAP=m.map;}feedMap();};
+  const n=Math.max(2,Math.min(4,(navigator.hardwareConcurrency||4)-1));
+  for(let i=0;i<n;i++){const w=new Worker(url),d={w,busy:false};w.postMessage({type:'init',role:'reader'});
+    w.onmessage=e=>{const m=e.data;d.busy=false;if(m.gen!==gen)return;wScale=m.scale;
+      if(m.F&&SCANNING){mapQ.push(m.F);if(mapQ.length>3)mapQ.shift();feedMap();}   // keep the map current: drop a stale backlog
+      if(!SCANNING&&'t' in m){out.textContent=m.t;if(m.spot)SPOT=m.spot;}
+      pump();};
+    decs.push(d);}
+  WK=mapW;
+  const fail=()=>{WK=null;decs.length=0;};mapW.onerror=fail;decs.forEach(d=>d.w.onerror=fail);   // fall back on decoding in the page
 }catch(e){WK=null;}
+function feedMap(){if(!mapW||mapBusy||!mapQ.length)return;mapBusy=true;const F=mapQ.shift();
+  mapW.postMessage({F,gen},[...F.soft.map(a=>a.buffer),F.valid.buffer]);}
 function pump(){
-  if(!WK||busy||PAUSED||!v.videoWidth||document.body.classList.contains('debug'))return;
+  if(!WK||PAUSED||!v.videoWidth||document.body.classList.contains('debug'))return;
+  const now=performance.now();if(now-lastCap<14)return;   // at most one capture per camera frame
+  const d=decs.find(d=>!d.busy);if(!d)return;
   const vw=v.videoWidth,vh=v.videoHeight,cap=Math.min(1,Math.sqrt(8.3e6/(vw*vh))),sc=wScale?Math.min(cap,wScale):cap,W=Math.round(vw*sc),H=Math.round(vh*sc);
   if(capC.width!==W||capC.height!==H){capC.width=W;capC.height=H;}
-  capX.drawImage(v,0,0,W,H);const d=capX.getImageData(0,0,W,H).data;busy=true;
-  WK.postMessage({type:'frame',vw,vh,sc,W,H,buf:d.buffer,scanning:SCANNING,gen},[d.buffer]);}
-const DARK='#3a3a3a',ease=(o,t,k)=>{for(const n in t)o[n]+=(t[n]-o[n])*k;};
-function drawScan(dt){
-  if(!WK){const k=SG?`${SG.frames}|${SG.y0},${SG.x0},${SG.y1},${SG.x1}`:'none';if(k!==mapKey){mapKey=k;MAP=mapSnapshot();}}   // no worker: read the page's own map
-  const S=MAP,W=mC.width,H=mC.height;mX.globalAlpha=1;mX.fillStyle=DARK;mX.fillRect(0,0,W,H);
-  if(!S){curL=prevL=view=liveV=null;paintKey='';return;}
-  const key=`${S.frames}|${S.y0},${S.x0},${S.y1},${S.x1}`;
-  if(key!==paintKey){paintKey=key;const {y0,x0,h,w}=S;
-    const c=cellLayer(h,w,(i,j)=>TONE[S.c[i*w+j]]);
-    // keep the outgoing image for the cross-fade (copy: its canvas is reused two updates later)
-    if(curL){const pc=prevL&&prevL.own||document.createElement('canvas');pc.width=curL.w;pc.height=curL.h;pc.getContext('2d').drawImage(curL.c,0,0);prevL={...curL,c:pc,own:pc};}
-    curL={c,y0,x0,h,w};fadeT=performance.now();}
-  const tgt={y0:S.y0,x0:S.x0,y1:S.y1+1,x1:S.x1+1};
-  if(!view)view={...tgt};else ease(view,tgt,1-Math.exp(-dt/160));
-  const sx=W/(view.x1-view.x0),sy=H/(view.y1-view.y0),X=x=>(x-view.x0)*sx,Y=y=>(y-view.y0)*sy;
-  mX.imageSmoothingEnabled=false;
-  const f=Math.min(1,(performance.now()-fadeT)/180);
-  if(prevL&&f<1)mX.drawImage(prevL.c,0,0,prevL.w,prevL.h,X(prevL.x0),Y(prevL.y0),prevL.w*sx,prevL.h*sy);
-  if(curL){mX.globalAlpha=prevL?f:1;mX.drawImage(curL.c,0,0,curL.w,curL.h,X(curL.x0),Y(curL.y0),curL.w*sx,curL.h*sy);mX.globalAlpha=1;}
-  const L=S.last;if(L){const lt={y0:Math.max(L.dy,S.y0),x0:Math.max(L.dx,S.x0),y1:Math.min(L.dy+L.h,S.y1+1),x1:Math.min(L.dx+L.w,S.x1+1)};
-    if(!liveV)liveV={...lt};else ease(liveV,lt,1-Math.exp(-dt/90));
-    mX.fillStyle='#fff';mX.fillRect(X(liveV.x0),Y(liveV.y0),(liveV.x1-liveV.x0)*sx,(liveV.y1-liveV.y0)*sy);}}
+  capX.drawImage(v,0,0,W,H);const px=capX.getImageData(0,0,W,H).data;d.busy=true;lastCap=now;
+  d.w.postMessage({vw,vh,sc,W,H,buf:px.buffer,scanning:SCANNING,gen,hintL:mapL},[px.buffer]);}
+setInterval(pump,8);
+const DARK='#3a3a3a';
+// hard cuts: every map update is drawn as it is, the sheet's outline stretched over the screen, live patch in white
+function drawScan(){
+  if(!WK){const k=SG?`${SG.frames}|${SG.y0},${SG.x0},${SG.y1},${SG.x1}`:'none';if(k!==mapKey){mapKey=k;MAP=mapSnapshot();}}   // no workers: read the page's own map
+  const S=MAP,W=mC.width,H=mC.height,key=S?`${S.frames}|${S.y0},${S.x0},${S.y1},${S.x1}|${W}x${H}`:'none';
+  if(key===paintKey)return;paintKey=key;
+  mX.globalAlpha=1;mX.fillStyle=DARK;mX.fillRect(0,0,W,H);if(!S)return;
+  const {h,w}=S,c=cellLayer(h,w,(i,j)=>TONE[S.c[i*w+j]]);
+  mX.imageSmoothingEnabled=false;mX.drawImage(c,0,0,W,H);
+  const L=S.last;if(L){const sx=W/w,sy=H/h,x0=Math.max(L.dx,S.x0),y0=Math.max(L.dy,S.y0),x1=Math.min(L.dx+L.w,S.x1+1),y1=Math.min(L.dy+L.h,S.y1+1);
+    mX.fillStyle='#fff';mX.fillRect(Math.round((x0-S.x0)*sx),Math.round((y0-S.y0)*sy),Math.round((x1-x0)*sx),Math.round((y1-y0)*sy));}}
 function paint(){
   if(document.body.classList.contains('debug'))return;
-  fitCanvas();const now=performance.now(),dt=Math.min(100,now-lastTick);lastTick=now;
-  if(SCANNING)drawScan(dt);
+  fitCanvas();
+  if(SCANNING)drawScan();
   else{const P=SPOT,fresh=P&&Date.now()-P.t<1200,key=fresh?'s'+P.t:'off';
     if(key!==paintKey){paintKey=key;mX.globalAlpha=1;
       if(!fresh){mX.fillStyle=DARK;mX.fillRect(0,0,mC.width,mC.height);}
