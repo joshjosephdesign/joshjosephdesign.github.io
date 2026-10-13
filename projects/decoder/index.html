@@ -24,17 +24,14 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
 #app{--page:#bcbcbc;--line:#2e2e2e;position:fixed;inset:0;z-index:10;background:var(--page);font-family:'ABC ROM',system-ui,sans-serif;
   font-size:clamp(16px,2.6vw + 5px,23px);line-height:1.33;color:#fff;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;user-select:none}
 .debug #app{display:none}
-#frame{position:absolute;isolation:isolate;border:1px solid var(--line);overflow:hidden;
-  top:max(24px,calc(env(safe-area-inset-top,0px) + 12px));bottom:max(32px,calc(env(safe-area-inset-bottom,0px) + 16px));
-  left:clamp(16px,9vw,72px);right:clamp(16px,9vw,72px)}
+#frame{position:absolute;inset:0;isolation:isolate;overflow:hidden}
+html,body{overscroll-behavior:none}
 #m{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated}
 #ghost{position:absolute;left:0;top:0;width:0;height:0;object-fit:cover;opacity:0;pointer-events:none;
   filter:grayscale(1) blur(8px) contrast(.7) brightness(1.12);transition:opacity .9s ease-out}
-#ghost.hit{opacity:.8;transition:opacity .12s ease-in}
-#ghost.seen{opacity:.4;transition:opacity .3s}
 #ghost.wait{left:0!important;top:0!important;width:100%!important;height:100%!important;opacity:.38;filter:grayscale(1) blur(30px) contrast(.35) brightness(1.15);transition:opacity .6s}
 #ink{position:absolute;inset:0;mix-blend-mode:exclusion;color:#fff;pointer-events:none}
-#tools{position:absolute;z-index:1;top:.85em;right:1.1em;display:flex;gap:.55em;font-size:1.1em;pointer-events:auto}
+#tools{position:absolute;z-index:1;top:calc(.85em + env(safe-area-inset-top,0px));right:max(1.1em,calc(env(safe-area-inset-right,0px) + .6em));display:flex;gap:.55em;font-size:1.1em;pointer-events:auto}
 #tools button{font:inherit;color:inherit;background:none;border:0;padding:.1em;cursor:pointer;opacity:.5;line-height:0}
 #tools button:hover,#tools button:active,#tools button[aria-pressed=true]{opacity:1}
 #tools button:focus-visible{outline:1px dashed currentColor;outline-offset:3px}
@@ -42,13 +39,13 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
 #tools .play,#pauseB[aria-pressed=true] .pause{display:none}
 #pauseB[aria-pressed=true] .play{display:inline}
 #app:not(.scanning) #rstB{display:none}
-#modes{position:absolute;z-index:1;top:.85em;left:0;right:0;display:flex;justify-content:center;gap:.75em;font-size:1.1em;pointer-events:auto}
+#modes{position:absolute;z-index:1;top:calc(.85em + env(safe-area-inset-top,0px));left:0;right:0;display:flex;justify-content:center;gap:.75em;font-size:1.1em;pointer-events:auto}
 #modes button{font:inherit;color:inherit;background:none;border:0;padding:.1em .05em;cursor:pointer;opacity:.5;text-decoration:none}
 #modes button[aria-pressed=true]{opacity:1;text-decoration:underline;text-decoration-thickness:.09em;text-underline-offset:.16em}
 #modes button:focus-visible{outline:1px dashed currentColor;outline-offset:3px}
-#txt{position:absolute;inset:3.1em 0 0;overflow-y:auto;scrollbar-width:none;padding:3.1em 1.6em 3em;pointer-events:auto;user-select:text;-webkit-user-select:text}
+#txt{position:absolute;inset:calc(3.1em + env(safe-area-inset-top,0px)) 0 0;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;scrollbar-width:none;padding:3.1em max(1.6em,calc(env(safe-area-inset-right,0px) + 1em)) calc(3em + env(safe-area-inset-bottom,0px)) max(1.6em,calc(env(safe-area-inset-left,0px) + 1em));pointer-events:auto;user-select:text;-webkit-user-select:text}
 #txt::-webkit-scrollbar{display:none}
-#txt p{margin:0;max-width:30em;white-space:pre-wrap;overflow-wrap:anywhere;hyphens:auto;-webkit-hyphens:auto}
+#txt p{margin:0;max-width:min(30em,100%);white-space:pre-wrap;overflow-wrap:anywhere;hyphens:auto;-webkit-hyphens:auto}
 #txt p.hint{opacity:.6}
 </style></head>
 <body>
@@ -102,12 +99,12 @@ camSel.onchange=()=>{try{localStorage.setItem('glyphCam',camSel.value);}catch(e)
 try{navigator.mediaDevices.addEventListener('devicechange',listCams);}catch(e){}
 out.onclick=()=>{if(!v.srcObject)start();};
 const scanBtn=document.getElementById('scan'),mapC=document.getElementById('map'),stEl=document.getElementById('st');
-let SCANNING=false,SPOT=null,SCANF=0,PAUSED=false;
+let SCANNING=false,SPOT=null,SCANF=0,PAUSED=false,WK=null;
 scanBtn.onclick=()=>{SCANNING=!SCANNING;scanBtn.setAttribute('aria-pressed',SCANNING);document.body.classList.toggle('scan',SCANNING);out.textContent='';if(SCANNING&&!SG)stEl.textContent='sweep the camera over the sheet';};
 document.getElementById('rst').onclick=()=>{scanReset();out.textContent='';stEl.textContent='sweep the camera over the sheet';drawMap(null);};
 function loop(){
   try{
-    if(v.videoWidth&&!PAUSED){
+    if(v.videoWidth&&!PAUSED&&(!WK||document.body.classList.contains('debug'))){
       const f0=SCANF;let t='';try{t=process();}catch(e){}
       if(SCANNING){try{scanFlush(false);}catch(e){}if(SG)t=SG.text;if(!t&&SG===null)stEl.textContent='sweep the camera over the sheet';}
       const now=Date.now();
@@ -117,7 +114,7 @@ function loop(){
       else if(t){out.textContent=t;lastT=now;MISS=0;}else{if(++MISS>=3)SCALE=0;if(now-lastT>1200)out.textContent='';}
     }
   }catch(e){}
-  setTimeout(loop,30);
+  setTimeout(loop,8);
 }
 
 /* ---------- helpers ---------- */
@@ -631,8 +628,11 @@ function scanDecode(){
   const dec=by=>{let outS='',run=[];const flush=()=>{if(run.length){outS+=new TextDecoder('utf-8').decode(new Uint8Array(run));run=[];}};
     for(let i=0;i<by.length;i++){if(by[i]<0){flush();outS+='░';}else run.push(by[i]);}flush();return outS;};
   let best={sc:-1,make:()=>''},cur=lay;
+  // the sheet's reading direction rarely changes: between full searches (every 4 s) only re-check the last one found
+  const now=Date.now(),fast=SG.decHint&&now-(SG.decFullT||0)<4000;
   for(let r=0;r<4;r++){
-    for(const XL of [cur,cur.map(mir)]){const per=XL[0].h*XL[0].w,all=new Int8Array(per*L);XL.forEach((X,l)=>all.set(X.m,l*per));
+    for(let mi=0;mi<2;mi++){if(fast&&(r!==SG.decHint.r||mi!==SG.decHint.m))continue;
+      const XL=mi?cur.map(mir):cur,b0=best;const per=XL[0].h*XL[0].w,all=new Int8Array(per*L);XL.forEach((X,l)=>all.set(X.m,l*per));
       for(let o=0;o<8;o++){const by=toBytes(all,o,0,all.length),sc=score(by);if(sc>best.sc)best={sc,make:()=>dec(by)};}
       if(L>1){let k=0,tot=0;const parts=[];
         for(let l=0;l<L;l++){let bb=null,bq=-1;for(let o=0;o<8;o++){const by=toBytes(all,o,l*per,(l+1)*per),q=score(by);if(q>bq){bq=q;bb=by;}}
@@ -644,10 +644,13 @@ function scanDecode(){
         for(let l=0;l<L;l++)for(let i=0;i<h;i++){const n0=l*per+i*w;let bb=null,bq=-1;
           for(let o=0;o<8;o++){const by=toBytes(all,o,n0,n0+w),q=score(by);if(q>bq){bq=q;bb=by;}}
           if(bb&&bb.length){k+=bq*bb.length;tot+=bb.length;rows.push(bb);}}
-        if(tot&&k/tot>best.sc+.06)best={sc:k/tot-.06,make:()=>rows.map(dec).join('')};}}
+        if(tot&&k/tot>best.sc+.06)best={sc:k/tot-.06,make:()=>rows.map(dec).join('')};}
+      if(best!==b0){best.r=r;best.m=mi;}}
     cur=cur.map(rot);}
+  if(!fast)SG.decFullT=now;if(best.r!==undefined)SG.decHint={r:best.r,m:best.m};
   return best.make().replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g,'·');}
 function drawMap(last){
+  if(!document.body.classList.contains('debug'))return;   // only the debug view shows this small map
   if(!SG){mapC.width=mapC.height=1;return;}
   const {y0,y1,x0,x1}=SG,h=y1-y0+1,w=x1-x0+1,k=Math.max(1,Math.floor(160/Math.max(h,w)));
   mapC.width=w*k;mapC.height=h*k;const c=mapC.getContext('2d'),im=c.createImageData(w,h);
@@ -655,6 +658,11 @@ function drawMap(last){
   const t=document.createElement('canvas');t.width=w;t.height=h;t.getContext('2d').putImageData(im,0,0);
   c.imageSmoothingEnabled=false;c.drawImage(t,0,0,w*k,h*k);
   if(last){c.strokeStyle='#f0f';c.lineWidth=2;c.strokeRect((last.dx-x0)*k,(last.dy-y0)*k,last.w*k,last.h*k);}}
+function mapSnapshot(){ // compact copy of the sheet map for drawing: pass count (0-4) per cell over its outline
+  if(!SG)return null;const {y0,y1,x0,x1}=SG,h=y1-y0+1,w=x1-x0+1,c=new Uint8Array(h*w);
+  for(let i=0;i<h;i++){const r=(i+y0)*GS+x0;for(let j=0;j<w;j++){const n=SG.cnt[r+j];c[i*w+j]=n>4?4:n;}}
+  const L=SG.last;return {y0,x0,y1,x1,h,w,frames:SG.frames,c,last:L&&{dy:L.dy,dx:L.dx,h:L.h,w:L.w}};}
+
 /* ---------- main interface ---------- */
 const mC=document.getElementById('m'),mX=mC.getContext('2d'),txtEl=document.getElementById('txt'),frameEl=document.getElementById('frame');
 const bScan=document.getElementById('mScan'),bSpot=document.getElementById('mSpot');
@@ -666,10 +674,10 @@ function setMode(scan){
   bScan.setAttribute('aria-pressed',scan);bSpot.setAttribute('aria-pressed',!scan);paintKey='';shown=null;
   document.getElementById('app').classList.toggle('scanning',scan);ghost.className='';}
 bScan.onclick=()=>setMode(true);
-function doReset(){scanReset();out.textContent='';stEl.textContent='sweep the camera over the sheet';drawMap(null);
-  MISS=0;lastT=0;paintKey='';shown=null;ghostAt=null;lastFrames=-1;placedT=FOUNDT=0;try{paint();feedback();}catch(e){}}
+function doReset(){gen++;MAP=null;mapKey='';if(WK)WK.postMessage({type:'reset'});scanReset();out.textContent='';stEl.textContent='sweep the camera over the sheet';drawMap(null);
+  MISS=0;lastT=0;paintKey='';shown=null;try{paint();feedback();}catch(e){}}
 document.getElementById('rstB').onclick=doReset;
-document.getElementById('rst').addEventListener('click',()=>{MISS=0;paintKey='';shown=null;ghostAt=null;lastFrames=-1;});
+document.getElementById('rst').addEventListener('click',()=>{MISS=0;paintKey='';shown=null;});
 const pauseB=document.getElementById('pauseB');
 pauseB.onclick=()=>{PAUSED=!PAUSED;pauseB.setAttribute('aria-pressed',PAUSED);pauseB.setAttribute('aria-label',PAUSED?'Resume':'Pause');shown=null;};
 bSpot.onclick=()=>{const now=Date.now();spotTaps=spotTaps.filter(t=>now-t<1500);spotTaps.push(now);setMode(false);
@@ -677,26 +685,80 @@ bSpot.onclick=()=>{const now=Date.now();spotTaps=spotTaps.filter(t=>now-t<1500);
 txtEl.onclick=()=>{if(!v.srcObject)start();};
 function fitCanvas(){const r=frameEl.getBoundingClientRect(),d=Math.min(2,window.devicePixelRatio||1),w=Math.max(1,Math.round(r.width*d)),h=Math.max(1,Math.round(r.height*d));
   if(mC.width!==w||mC.height!==h){mC.width=w;mC.height=h;paintKey='';}}
-function paintCells(h,w,tone){   // a cell grid stretched over the whole frame
-  const im=new ImageData(w,h),d=im.data;
-  for(let i=0;i<h;i++)for(let j=0;j<w;j++){const q=4*(i*w+j),b=tone(i,j);d[q]=d[q+1]=d[q+2]=b;d[q+3]=255;}
-  const t=document.createElement('canvas');t.width=w;t.height=h;t.getContext('2d').putImageData(im,0,0);
-  mX.imageSmoothingEnabled=false;mX.drawImage(t,0,0,mC.width,mC.height);}
+// cell images are drawn once per map change into small offscreen canvases (one cell = one pixel), then every display
+// frame scales them up: the view eases toward the map's growing outline, new cells fade in, the live patch glides
+const offs=[document.createElement('canvas'),document.createElement('canvas')];let offI=0,imgCache=null;
+function cellLayer(h,w,tone){const c=offs[offI^=1];if(c.width!==w||c.height!==h){c.width=w;c.height=h;}
+  const x=c.getContext('2d');if(!imgCache||imgCache.width!==w||imgCache.height!==h)imgCache=x.createImageData(w,h);
+  const d=imgCache.data;for(let i=0,q=0;i<h;i++)for(let j=0;j<w;j++,q+=4){const b=tone(i,j);d[q]=d[q+1]=d[q+2]=b;d[q+3]=255;}
+  x.putImageData(imgCache,0,0);return c;}
+let curL=null,prevL=null,fadeT=0,view=null,liveV=null,lastTick=performance.now(),MAP=null,mapKey='';
+// decoding runs in a background worker built from this same script, so drawing never waits for a frame to decode.
+// The page grabs a frame at the worker's chosen scale, hands the pixels over, and draws whatever the worker sends back.
+const ENGINE=document.currentScript?document.currentScript.textContent.split('/* ---------- main interface ---------- */')[0]:'';
+const capC=document.createElement('canvas'),capX=capC.getContext('2d',{willReadFrequently:true});
+let busy=false,wScale=0,gen=0;
+try{
+  if(!ENGINE||!window.Worker)throw 0;
+  const shim=`const FRAME={};const CTX={drawImage(){},getImageData(){return {data:FRAME.px};},createImageData(w,h){return {data:new Uint8ClampedArray(w*h*4)};},putImageData(){},strokeRect(){},fillRect(){}};
+const fakeEl=()=>({textContent:'',value:'',innerHTML:'',style:{},setAttribute(){},addEventListener(){},appendChild(){},classList:{toggle(){},add(){},contains(){return false;}},getContext(){return CTX;}});
+self.document={getElementById:fakeEl,createElement:fakeEl,body:fakeEl()};`;
+  const eng=ENGINE.replace("const v=document.getElementById('v')","const v={videoWidth:0,videoHeight:0}")
+    .replace("const sc=SCALE?Math.min(cap,SCALE):cap,W=Math.round(vw*sc),H=Math.round(vh*sc),N=W*H;","const sc=FRAME.sc,W=FRAME.W,H=FRAME.H,N=W*H;")
+    .replace("  setTimeout(loop,8);","");
+  const tail=`let lastSnap='',lastSpot=0;
+onmessage=e=>{const m=e.data;
+  if(m.type==='reset'){scanReset();out.textContent='';MISS=0;lastSnap='';return;}
+  Object.assign(FRAME,m);FRAME.px=new Uint8ClampedArray(m.buf);v.videoWidth=m.vw;v.videoHeight=m.vh;
+  if(m.scanning!==SCANNING){SCANNING=m.scanning;out.textContent='';}
+  loop();
+  const r={type:'done',gen:m.gen,t:out.textContent,scale:SCALE,buf:m.buf};const tr=[m.buf];
+  const k=SG?SG.frames+'|'+SG.y0+','+SG.x0+','+SG.y1+','+SG.x1:'none';
+  if(k!==lastSnap){lastSnap=k;r.map=mapSnapshot();if(r.map)tr.push(r.map.c.buffer);}
+  if(!SCANNING&&SPOT&&SPOT.t!==lastSpot){lastSpot=SPOT.t;r.spot=SPOT;}
+  postMessage(r,tr);};`;
+  if(!eng.includes('FRAME.sc'))throw 0;
+  WK=new Worker(URL.createObjectURL(new Blob([shim,eng,tail],{type:'text/javascript'})));
+  WK.onmessage=e=>{const m=e.data;busy=false;if(m.gen!==gen)return;
+    wScale=m.scale;out.textContent=m.t;if('map' in m)MAP=m.map;if(m.spot)SPOT=m.spot;pump();};
+  WK.onerror=()=>{WK=null;busy=false;};   // fall back on decoding in the page
+}catch(e){WK=null;}
+function pump(){
+  if(!WK||busy||PAUSED||!v.videoWidth||document.body.classList.contains('debug'))return;
+  const vw=v.videoWidth,vh=v.videoHeight,cap=Math.min(1,Math.sqrt(8.3e6/(vw*vh))),sc=wScale?Math.min(cap,wScale):cap,W=Math.round(vw*sc),H=Math.round(vh*sc);
+  if(capC.width!==W||capC.height!==H){capC.width=W;capC.height=H;}
+  capX.drawImage(v,0,0,W,H);const d=capX.getImageData(0,0,W,H).data;busy=true;
+  WK.postMessage({type:'frame',vw,vh,sc,W,H,buf:d.buffer,scanning:SCANNING,gen},[d.buffer]);}
+const DARK='#3a3a3a',ease=(o,t,k)=>{for(const n in t)o[n]+=(t[n]-o[n])*k;};
+function drawScan(dt){
+  if(!WK){const k=SG?`${SG.frames}|${SG.y0},${SG.x0},${SG.y1},${SG.x1}`:'none';if(k!==mapKey){mapKey=k;MAP=mapSnapshot();}}   // no worker: read the page's own map
+  const S=MAP,W=mC.width,H=mC.height;mX.globalAlpha=1;mX.fillStyle=DARK;mX.fillRect(0,0,W,H);
+  if(!S){curL=prevL=view=liveV=null;paintKey='';return;}
+  const key=`${S.frames}|${S.y0},${S.x0},${S.y1},${S.x1}`;
+  if(key!==paintKey){paintKey=key;const {y0,x0,h,w}=S;
+    const c=cellLayer(h,w,(i,j)=>TONE[S.c[i*w+j]]);
+    // keep the outgoing image for the cross-fade (copy: its canvas is reused two updates later)
+    if(curL){const pc=prevL&&prevL.own||document.createElement('canvas');pc.width=curL.w;pc.height=curL.h;pc.getContext('2d').drawImage(curL.c,0,0);prevL={...curL,c:pc,own:pc};}
+    curL={c,y0,x0,h,w};fadeT=performance.now();}
+  const tgt={y0:S.y0,x0:S.x0,y1:S.y1+1,x1:S.x1+1};
+  if(!view)view={...tgt};else ease(view,tgt,1-Math.exp(-dt/160));
+  const sx=W/(view.x1-view.x0),sy=H/(view.y1-view.y0),X=x=>(x-view.x0)*sx,Y=y=>(y-view.y0)*sy;
+  mX.imageSmoothingEnabled=false;
+  const f=Math.min(1,(performance.now()-fadeT)/180);
+  if(prevL&&f<1)mX.drawImage(prevL.c,0,0,prevL.w,prevL.h,X(prevL.x0),Y(prevL.y0),prevL.w*sx,prevL.h*sy);
+  if(curL){mX.globalAlpha=prevL?f:1;mX.drawImage(curL.c,0,0,curL.w,curL.h,X(curL.x0),Y(curL.y0),curL.w*sx,curL.h*sy);mX.globalAlpha=1;}
+  const L=S.last;if(L){const lt={y0:Math.max(L.dy,S.y0),x0:Math.max(L.dx,S.x0),y1:Math.min(L.dy+L.h,S.y1+1),x1:Math.min(L.dx+L.w,S.x1+1)};
+    if(!liveV)liveV={...lt};else ease(liveV,lt,1-Math.exp(-dt/90));
+    mX.fillStyle='#fff';mX.fillRect(X(liveV.x0),Y(liveV.y0),(liveV.x1-liveV.x0)*sx,(liveV.y1-liveV.y0)*sy);}}
 function paint(){
   if(document.body.classList.contains('debug'))return;
-  fitCanvas();
-  if(SCANNING){
-    const S=SG,key=S?`${S.frames}|${S.lost}|${S.y0},${S.x0},${S.y1},${S.x1}`:'none';
-    if(key!==paintKey){paintKey=key;
-      if(!S){mX.fillStyle='#3a3a3a';mX.fillRect(0,0,mC.width,mC.height);}
-      else{const {y0,y1,x0,x1}=S,h=y1-y0+1,w=x1-x0+1,L=S.last;
-        paintCells(h,w,(i,j)=>{const y=i+y0,x=j+x0,n=S.cnt[y*GS+x];
-          if(L&&n&&y>=L.dy&&y<L.dy+L.h&&x>=L.dx&&x<L.dx+L.w)return LIVE;
-          return TONE[Math.min(n,TONE.length-1)];});}}}
+  fitCanvas();const now=performance.now(),dt=Math.min(100,now-lastTick);lastTick=now;
+  if(SCANNING)drawScan(dt);
   else{const P=SPOT,fresh=P&&Date.now()-P.t<1200,key=fresh?'s'+P.t:'off';
-    if(key!==paintKey){paintKey=key;
-      if(!fresh){mX.fillStyle='#3a3a3a';mX.fillRect(0,0,mC.width,mC.height);}
-      else paintCells(P.h,P.w,(i,j)=>{const c=P.m[i*P.w+j];return c===2?LIVE:c===1?TONE[2]:TONE[0];});}}
+    if(key!==paintKey){paintKey=key;mX.globalAlpha=1;
+      if(!fresh){mX.fillStyle=DARK;mX.fillRect(0,0,mC.width,mC.height);}
+      else{const c=cellLayer(P.h,P.w,(i,j)=>{const m=P.m[i*P.w+j];return m===2?LIVE:m===1?TONE[2]:TONE[0];});
+        mX.imageSmoothingEnabled=false;mX.drawImage(c,0,0,mC.width,mC.height);}}}
   // text: the decoded stream, or a hint while there is none
   let t=out.textContent,hint=false;
   if(!t){hint=true;t=!v.srcObject&&looping===false?'Allow the camera to begin.':SCANNING?'Sweep the camera slowly over the sheet.':'Point the camera at a glyph sheet.';}
@@ -706,22 +768,12 @@ function paint(){
   if(k!==shown){shown=k;const p=txtEl.firstElementChild;p.className=hint?'hint':'';
     p.textContent=hint?t:t.replace(/░+/g,m=>' '+'·'.repeat(Math.min(3,m.length))+' ');}
 }
-// feedback: a blurred grey copy of the camera sits on the patch of the map it was matched to. It flashes up when a
-// frame lands on the map, shows faintly when glyphs are in view but the frame couldn't be placed, and fades otherwise
-const ghost=document.getElementById('ghost');let FOUNDT=0,placedT=0,lastFrames=-1,ghostAt=null;
-{const step=scanStep;scanStep=function(F){FOUNDT=Date.now();return step(F);};}
+// before the first frame lands, a vague blurred grey view of the camera shows it is live; it goes once scanning starts
+const ghost=document.getElementById('ghost');
 function feedback(){
   if(ghost.srcObject!==v.srcObject){ghost.srcObject=v.srcObject;if(v.srcObject)ghost.play().catch(()=>{});}
-  if(!SCANNING||PAUSED||!v.srcObject){ghost.className='';return;}
-  if(!SG||!SG.last){ghost.className='wait';lastFrames=-1;ghostAt=null;return;}   // nothing mapped yet: a vague grey view of the camera
-  const now=Date.now(),S=SG,L=S.last;
-  if(S.frames!==lastFrames){if(lastFrames>=0||S.frames===1)placedT=now;lastFrames=S.frames;}
-  const fw=frameEl.clientWidth,fh=frameEl.clientHeight,mw=S.x1-S.x0+1,mh=S.y1-S.y0+1;
-  const x0=Math.max(L.dx,S.x0),y0=Math.max(L.dy,S.y0),x1=Math.min(L.dx+L.w,S.x1+1),y1=Math.min(L.dy+L.h,S.y1+1);
-  const k=`${x0},${y0},${x1},${y1},${fw},${fh},${mw},${mh}`;
-  if(k!==ghostAt){ghostAt=k;Object.assign(ghost.style,{left:(x0-S.x0)/mw*fw+'px',top:(y0-S.y0)/mh*fh+'px',width:Math.max(0,(x1-x0)/mw*fw)+'px',height:Math.max(0,(y1-y0)/mh*fh)+'px'});}
-  ghost.className=now-placedT<650?'hit':now-FOUNDT<700?'seen':'';}
-(function tick(){try{paint();feedback();}catch(e){}requestAnimationFrame(tick);})();
+  ghost.className=SCANNING&&!PAUSED&&v.srcObject&&!MAP?'wait':'';}
+(function tick(){try{pump();paint();feedback();}catch(e){}requestAnimationFrame(tick);})();
 window.addEventListener('resize',()=>{paintKey='';});
 // scan is the default mode
 SCANNING=true;scanBtn.setAttribute('aria-pressed','true');document.body.classList.add('scan');stEl.textContent='sweep the camera over the sheet';
