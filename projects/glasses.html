@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Paint Booth Try-On</title>
 <style>
   @font-face {
@@ -211,18 +211,25 @@
 
   /* phone */
   @media (max-width: 760px) {
-    :root { --stage-w: min(calc(100vw - 32px), 460px, calc((100svh - 345px) * var(--ar))); }
-    body { padding: 54px 16px 20px; }
-    #theme { position: absolute; top: 12px; right: 14px; width: 32px; height: 32px; }
-    #theme svg { width: 16px; height: 16px; }
+    html, body { overflow: hidden; overscroll-behavior: none; }
+    body {
+      position: fixed; left: 0; right: 0; top: 0; height: var(--app-h, 100dvh); min-height: 0;
+      padding: max(12px, env(safe-area-inset-top)) 12px max(10px, env(safe-area-inset-bottom));
+      justify-content: center;
+    }
+    .stage-wrap { flex: none; }
+    #theme { position: static; width: 28px; height: 28px; margin-left: auto; flex: none; }
+    #theme svg { width: 15px; height: 15px; }
+    /* keyboard up: just the TV and the typing line */
+    body.kb .tools, body.kb #shutter, body.kb #stack { display: none; }
+    body.kb .controls { grid-template-areas: "typer typer typer"; }
     .overlay h1 { font-size: 18px; }
     .overlay p { font-size: 13px; padding: 0 16px; }
     #badge text { font-size: 7px; letter-spacing: .36em; }
-    .controls { width: min(calc(100vw - 32px), 460px); margin-top: 26px; column-gap: 10px; row-gap: 6px;
+    .controls { width: min(calc(100vw - 24px), 480px); margin-top: 24px; column-gap: 10px; row-gap: 4px; flex: none;
       grid-template-columns: 1fr auto 1fr; grid-template-areas: "typer typer typer" "stack shutter tools"; }
-    .typer-head { height: 22px; }
-    .typer-head:not(:has(.show)) { height: 0; }
-    .strip { height: 74px; }
+    .typer-head { height: 28px; }
+    .strip { height: 72px; }
     .tools { justify-self: end; gap: 10px; }
     .sw { width: 27px; height: 27px; padding: 2.5px; }
     .hex-row { gap: 4px; }
@@ -794,11 +801,11 @@ const NARROW = matchMedia('(max-width: 760px)');
 let CROP = { x: 0, y: 0, w: 1280, h: 720 };
 function configureStage() {
   if (!video) {
-    stage.width = NARROW.matches ? 720 : 1280; stage.height = NARROW.matches ? 960 : 720;
+    stage.width = NARROW.matches ? Math.round(960 * narrowAR) : 1280; stage.height = NARROW.matches ? 960 : 720;
     document.documentElement.style.setProperty('--ar', (stage.width / stage.height).toFixed(4)); return;
   }
   // narrow layout: a portrait crop shaped to fill whatever height is left around the controls
-  const want = NARROW.matches ? clamp((innerWidth - 32) / Math.max(200, innerHeight - 345), 0.6, 0.8) : VW / VH;
+  const want = NARROW.matches ? narrowAR : VW / VH;
   let cw = VW, ch = VH;
   if (VW / VH > want) cw = Math.round(VH * want); else ch = Math.round(VW / want);
   CROP = { x: (VW - cw) / 2, y: (VH - ch) / 2, w: cw, h: ch };
@@ -813,8 +820,34 @@ function configureStage() {
   camera.position.set(0, 0, dist);
   camera.updateProjectionMatrix();
 }
-NARROW.addEventListener('change', configureStage);
-let resizeT; addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => { if (NARROW.matches) configureStage(); }, 120); });
+/* Narrow layout fills the visible window exactly: no page scroll. The TV takes whatever height the controls leave,
+   and when the on-screen keyboard opens the whole app shrinks to sit above it. */
+let narrowAR = 0.75, lastFit = '';
+function fitNarrow() {
+  const vv = window.visualViewport, appH = vv ? vv.height : innerHeight;
+  const kb = NARROW.matches && TOUCH && document.activeElement === txt && appH < innerHeight - 120;
+  document.body.classList.toggle('kb', kb);
+  root.style.setProperty('--app-h', appH + 'px');
+  document.body.style.top = NARROW.matches && vv ? vv.offsetTop + 'px' : '';
+  const host = NARROW.matches ? $('.typer-head') : document.body;
+  if ($('#theme').parentElement !== host) host.appendChild($('#theme'));
+  if (!NARROW.matches) { root.style.removeProperty('--stage-w'); if (lastFit !== 'wide') { lastFit = 'wide'; configureStage(); } return; }
+  const cs = getComputedStyle(document.body), ctl = $('.controls');
+  const padY = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+  const availH = Math.max(120, appH - padY - ctl.offsetHeight - parseFloat(getComputedStyle(ctl).marginTop) - 2);
+  const availW = Math.min(innerWidth - 24, 520);
+  narrowAR = clamp(availW / availH, 0.56, 1.2);
+  const w = Math.floor(Math.min(availW, availH * narrowAR));
+  root.style.setProperty('--stage-w', w + 'px');
+  const key = `${w}|${narrowAR.toFixed(3)}`;
+  if (key !== lastFit) { lastFit = key; configureStage(); }
+}
+let fitT; const fitSoon = () => { clearTimeout(fitT); fitT = setTimeout(fitNarrow, 60); };
+NARROW.addEventListener('change', fitNarrow);
+addEventListener('resize', fitSoon);
+window.visualViewport?.addEventListener('resize', fitSoon);
+window.visualViewport?.addEventListener('scroll', () => { if (NARROW.matches) document.body.style.top = visualViewport.offsetTop + 'px'; });
+txt.addEventListener('focus', fitSoon); txt.addEventListener('blur', fitSoon);
 
 async function startCamera() {
   $('#startCam').disabled = true;
@@ -827,7 +860,7 @@ async function startCamera() {
     video.muted = true; video.playsInline = true; video.srcObject = stream;
     await video.play();
     VW = video.videoWidth; VH = video.videoHeight;
-    configureStage();
+    lastFit = ''; fitNarrow(); configureStage();
     $('#intro').style.display = 'none';
     $('#shutter').disabled = false;
     setStatus('Loading face tracker…');
@@ -1027,6 +1060,7 @@ $('#theme').addEventListener('click', () => {
 });
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', refreshTheme);
 
+fitNarrow();
 configureStage();
 
 /* ---------- go ---------- */
@@ -1037,6 +1071,7 @@ await document.fonts.ready;
 updateAll();
 refreshTheme();
 renderStack();
+lastFit = ''; fitNarrow();
 txt.focus({ preventScroll: true });
 startCamera();
 </script>
