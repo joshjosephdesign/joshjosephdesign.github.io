@@ -1008,14 +1008,31 @@ function renderStack() {
   if (photos.length > 1) { const c = document.createElement('span'); c.className = 'count'; c.textContent = photos.length; st.appendChild(c); }
 }
 const gal = $('#gallery');
+/* On phones, hand photos to the system share sheet: "Save Image" there puts them in the Camera Roll / Photos. */
+const asFile = p => new File([p.blob], p.name, { type: 'image/png' });
+const CAN_SHARE = (() => {
+  try { return TOUCH && !!navigator.canShare && navigator.canShare({ files: [new File([new Blob(['x'])], 'x.png', { type: 'image/png' })] }); }
+  catch (e) { return false; }
+})();
+function downloadPhoto(p) { const a = document.createElement('a'); a.href = p.url; a.download = p.name; document.body.appendChild(a); a.click(); a.remove(); }
+async function savePhotos(list) {
+  if (CAN_SHARE) {
+    try { await navigator.share({ files: list.map(asFile) }); return; }
+    catch (e) { if (e.name === 'AbortError') return; }        // user closed the sheet: do nothing
+  }
+  for (const p of list) { downloadPhoto(p); await new Promise(r => setTimeout(r, 250)); }
+}
+
 function renderGallery() {
   const grid = $('#gGrid'); grid.innerHTML = '';
   $('#gTitle').textContent = photos.length ? `Photos (${photos.length})` : 'Photos';
   $('#dlAll').style.display = photos.length > 1 ? '' : 'none';
-  if (!photos.length) { grid.innerHTML = '<div class="g-empty">No photos yet. Press the shutter or hit Enter.</div>'; return; }
+  $('#dlAll').textContent = CAN_SHARE ? 'Save all to Photos' : 'Download all';
+  if (!photos.length) { grid.innerHTML = '<div class="g-empty">No photos yet. Press the shutter to take one.</div>'; return; }
   [...photos].reverse().forEach(p => {
     const it = document.createElement('div'); it.className = 'g-item';
-    it.innerHTML = `<img src="${p.url}" alt="Photo with glasses"><div class="row"><span>${p.date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' })}</span><div><a href="${p.url}" download="${p.name}">Download</a><button>Delete</button></div></div>`;
+    it.innerHTML = `<img src="${p.url}" alt="Photo with glasses"><div class="row"><span>${p.date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' })}</span><div><a href="${p.url}" download="${p.name}">${CAN_SHARE ? 'Save to Photos' : 'Download'}</a><button>Delete</button></div></div>`;
+    it.querySelector('a').addEventListener('click', e => { if (CAN_SHARE) { e.preventDefault(); savePhotos([p]); } });
     it.querySelector('button').addEventListener('click', () => {
       URL.revokeObjectURL(p.url); photos.splice(photos.indexOf(p), 1); renderGallery(); renderStack();
     });
@@ -1025,12 +1042,7 @@ function renderGallery() {
 $('#stack').addEventListener('click', () => { renderGallery(); gal.showModal(); });
 $('#gClose').addEventListener('click', () => gal.close());
 gal.addEventListener('click', e => { if (e.target === gal) gal.close(); });
-$('#dlAll').addEventListener('click', async () => {
-  for (const p of photos) {
-    const a = document.createElement('a'); a.href = p.url; a.download = p.name; document.body.appendChild(a); a.click(); a.remove();
-    await new Promise(r => setTimeout(r, 250));
-  }
-});
+$('#dlAll').addEventListener('click', () => savePhotos([...photos]));
 
 // buttons shouldn't steal focus from the typing field
 document.querySelectorAll('.sw:not(.custom), .sets button, #shutter, #stack').forEach(b => b.addEventListener('mousedown', e => e.preventDefault()));
