@@ -106,10 +106,11 @@
     position: absolute; left: 0; top: 30px; width: 10px; height: 20px; opacity: 0; border: 0; padding: 0;
     pointer-events: none; font-size: 16px;
   }
-  .notches { position: relative; height: calc(var(--nh, 52px) + 6px); }
+  .notches { position: relative; z-index: 2; pointer-events: none; height: calc(var(--nh, 52px) + 6px); }
   .notch {
     position: absolute; top: 0; width: max(var(--nw, 38px), 30px); height: var(--nh, 52px); margin-left: calc(max(var(--nw, 38px), 30px) / -2);
     padding: 0; border: 0; background: none; cursor: pointer; display: grid; place-items: start center; color: var(--ink);
+    pointer-events: auto;
   }
   .notch::before {
     content: ""; width: var(--dot, 13px); height: var(--dot, 13px); border-radius: 50%; background: var(--ink); opacity: .32;
@@ -117,9 +118,8 @@
   }
   .notch:hover::before { transform: scale(1.2); opacity: .7; }
   .notch.sel::before { display: none; }
-  .notch svg { width: var(--nw, 38px); height: var(--nh, 52px); display: none; transition: transform .15s; }
+  .notch svg { width: var(--nw, 38px); height: var(--nh, 52px); display: none; }
   .notch.sel svg { display: block; }
-  .notch.sel:hover svg { transform: translateY(2px); }
   .notch.faded { opacity: .3; }
   .notch.faded:hover { opacity: .65; }
   .eyes { position: absolute; inset: 0; pointer-events: none; z-index: 0; }
@@ -354,17 +354,17 @@ function shapeRaw(text) {
 
 // Vertical metrics of the whole font + typical lens centre (from medial forms)
 const FONT_Y = (() => {
-  let top = -Infinity, bot = Infinity; const centres = [], bots = [], tops = [];
+  let top = -Infinity, bot = Infinity; const centres = [], bots = [], tops = [], mediCY = {};
   const letters = 'abcdefghijklmnopqrstuvwxyz';
   for (const c of letters) {
     for (const s of [c, c + 'a', 'a' + c, 'a' + c + 'a']) {
       for (const o of shapeRaw(s)) { const g = glyph(o.g); if (!g.empty) { top = Math.max(top, g.y1); bot = Math.min(bot, g.y0); } }
     }
     const mid = shapeRaw('a' + c + 'a')[1];
-    if (mid) { const g = glyph(mid.g); centres.push((g.y0 + g.y1) / 2); bots.push(g.y0); tops.push(g.y1); }
+    if (mid) { const g = glyph(mid.g); centres.push((g.y0 + g.y1) / 2); bots.push(g.y0); tops.push(g.y1); mediCY[c] = (g.y0 + g.y1) / 2; }
   }
   const med = a => a.sort((x, y) => x - y)[a.length >> 1];
-  return { top: top + 20, bot: bot - 20, lensCY: med(centres), lensBot: med(bots), lensTop: med(tops) };
+  return { top: top + 20, bot: bot - 20, lensCY: med(centres), lensBot: med(bots), lensTop: med(tops), mediCY };
 })();
 
 /* Layout model: words → lenses → bridges (glyph boundaries) */
@@ -535,17 +535,10 @@ function drawStrip() {
   txt.style.left = (stripPad + caretX(L, txt.selectionStart ?? 0) * stripK) + 'px';
 }
 
-// vertical middle of one lens: outline points across the middle 40% of that lens's width (skips temple arms)
-function lensCentreY(w, lens) {
-  const cx = (lens.x0 + lens.x1) / 2, half = (lens.x1 - lens.x0) * 0.2;
-  const g = w.glyphs.find(g => cx >= g.x && cx < g.x + g.adv);
-  if (!g) return FONT_Y.lensCY;
-  let lo = Infinity, hi = -Infinity;
-  for (const [x, y] of glyph(g.gid).pts) {
-    const gx = g.x + g.dx + x;
-    if (gx >= cx - half && gx <= cx + half) { lo = Math.min(lo, y); hi = Math.max(hi, y); }
-  }
-  return isFinite(lo) ? (lo + hi) / 2 + g.dy : FONT_Y.lensCY;
+// vertical middle of a lens = middle of that letter's medial form, whatever form is actually on screen
+function lensCentreY(w, j) {
+  const c = state.text[w.start + j];
+  return FONT_Y.mediCY[c] ?? FONT_Y.lensCY;
 }
 
 function buildNotches() {
@@ -559,7 +552,7 @@ function buildNotches() {
   notchesEl.style.setProperty('--nh', nh + 'px');
   notchesEl.style.setProperty('--nw', nw + 'px');
   notchesEl.style.setProperty('--dot', clamp(nh * 0.24, 8, 14) + 'px');
-  notchesEl.style.marginTop = (lensBottomPx - stripH + 2) + 'px';
+  notchesEl.style.marginTop = (lensBottomPx - stripH) + 'px';
 
   L.words.forEach((w, wi) => {
     if (w.lenses.length <= 2) return;           // nose selector only for 3+ lenses
@@ -581,12 +574,13 @@ function buildNotches() {
     });
     // eyes inside the two lenses beside the chosen bridge
     const i = state.noses[wi];
-    for (const lens of [w.lenses[i], w.lenses[i + 1]]) {
+    for (const j of [i, i + 1]) {
+      const lens = w.lenses[j];
       if (!lens) continue;
       const e = document.createElement('span');
       e.className = 'eye' + (faded ? ' faded' : '');
       e.style.left = (stripPad + (lens.x0 + lens.x1) / 2 * k) + 'px';
-      e.style.top = (stripBase - lensCentreY(w, lens) * k) + 'px';
+      e.style.top = (stripBase - lensCentreY(w, j) * k) + 'px';
       e.style.width = clamp((lens.x1 - lens.x0) * k * 0.3, 8, 30) + 'px';
       e.innerHTML = '<svg><use href="#eye"/></svg>';
       eyesEl.appendChild(e);
